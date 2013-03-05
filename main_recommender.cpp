@@ -247,17 +247,21 @@ int main(int argc, char **argv){
 	Hash_Map d1, d2;
 	Hash_Map d1c, d2c;
 	Groups groups2, groups1;
-	gsl_rng *rand_groups, *rand_step;
+	gsl_rng *groups_randomizer, *step_randomizer;
 	char* tFileName;
 	char* qFileName;
 	int groupseed, stepseed;
 	int mark;
 
 	parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &groupseed, &mark);
-	rand_step = gsl_rng_alloc(gsl_rng_mt19937);
-	rand_groups = gsl_rng_alloc(gsl_rng_mt19937);
-	gsl_rng_set(rand_step, stepseed);
-	gsl_rng_set(rand_groups, groupseed);
+
+    std::cout << stepseed << " " << tFileName << " " << qFileName << " " << groupseed << " " << mark << "\n";
+
+    
+	step_randomizer = gsl_rng_alloc(gsl_rng_mt19937);
+	groups_randomizer = gsl_rng_alloc(gsl_rng_mt19937);
+	gsl_rng_set(step_randomizer, stepseed);
+	gsl_rng_set(groups_randomizer, groupseed);
 
 	std::ifstream inFile(tFileName);
 	if (inFile.is_open()){
@@ -278,11 +282,11 @@ int main(int argc, char **argv){
 	d1c = d1;
 	d2c = d2;	
 
-	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, rand_groups, mark, false);
+	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, true);
 	H = HKState(mark, &groups1, &groups2, d1c, d2c);
 	std::cout << "Initial H: "<< H <<"\n";
 	for(int i=0; i<STEPS; i++){
-//		MCStepKState(&groups1, &groups2, &d1c, &d2c, rand_step, rand_groups, &H, mark);
+		/* MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark); */
 		std::cout << H << "    " << HKState(mark, &groups1, &groups2, d1c, d2c) << "\n";
 	}
 
@@ -323,8 +327,8 @@ int main(int argc, char **argv){
 
 	std::cout << "Next H: "<< H <<"\n";
 
-	gsl_rng_free(rand_step);
-	gsl_rng_free(rand_groups);
+	gsl_rng_free(step_randomizer);
+	gsl_rng_free(groups_randomizer);
 	return 0;
 
 }
