@@ -48,6 +48,8 @@ The following described structures are the most important in the program:
 A quick representation would be:
 
 
+<pre>
+
       Nodeset                      Groups             
 -------------------         -------------------
 | NodeId |  Node  |<---     | GroupId | Group |·----->  Group
@@ -65,6 +67,7 @@ A quick representation would be:
                                | @ |  NodeId  |
                                ----------------                                 
 
+</pre>
 
 
 ===============================================================================
