@@ -123,8 +123,10 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
     		    for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit){
         		    ++nlinks;
             		for(GroupNodes::iterator it2 = g1->second.members.begin(); it2 != g1->second.members.end(); ++it2)
-                		if (nit->second.get_id() == it2->second->get_id())
+                		if (nit->second.get_id() == it2->second->get_id()){
                     		++ngrouplinks;
+                            nweight[it2->second->get_id()]++;
+                        }
                 
 	        	}
 
@@ -144,8 +146,10 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 		        for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit){
         		    ++nlinks;
 		            for(GroupNodes::iterator it2 = g2->second.members.begin(); it2 != g2->second.members.end(); ++it2)
-		                if (nit->second.get_id() == it2->second->get_id())
+		                if (nit->second.get_id() == it2->second->get_id()){
         		            ++ngrouplinks;
+                            nweight[it2->second->get_id()]++;
+                        }
                 
         		}
 
@@ -155,6 +159,10 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 		        g1->second.g2glinks[g2->second.get_id()][i] = nweight[i];
 		        g1->second.kratings[i] += nweight[i];
 		    }
+		std::cout << "Kratings: ";
+		for (int i=1; i<K+1; ++i)
+			std::cout << nweight[i] << " ";
+		std::cout << "\n";
 		}
 	}
 }
@@ -282,13 +290,7 @@ int main(int argc, char **argv){
 	d1c = d1;
 	d2c = d2;	
 
-	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, true);
-	H = HKState(mark, &groups1, &groups2, d1c, d2c);
-	std::cout << "Initial H: "<< H <<"\n";
-	for(int i=0; i<STEPS; i++){
-		/* MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark); */
-		std::cout << H << "    " << HKState(mark, &groups1, &groups2, d1c, d2c) << "\n";
-	}
+	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false);
 
 	std::cout << " ################ G R O U P S 1 ############### \n";
     for (Groups::iterator it = (groups1).begin(); it != (groups1).end(); ++it){
@@ -306,6 +308,13 @@ int main(int argc, char **argv){
 		std::cout << "\n";
 			
 	}
+
+	H = HKState(mark, &groups1, &groups2, d1c, d2c);
+	std::cout << "Initial H: "<< H <<"\n";
+	//for(int i=0; i<STEPS; i++){
+		/* MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark); */
+	//	std::cout << H << "    " << HKState(mark, &groups1, &groups2, d1c, d2c) << "\n";
+	//}
 
     /*std::cout << " ################ G R O U P S 2 ################ \n";
     for (Groups::iterator it = (groups2).begin(); it != (groups2).end(); ++it){

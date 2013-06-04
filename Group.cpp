@@ -11,8 +11,8 @@ Group::Group ( int id, int K ) {
 		
 	Group::id = id;
 	Group::k = K;
-	kratings = new int[K+1];
-	memset( kratings, 0, (K+1)*sizeof(int) );
+    kratings = (int*) malloc((K+1)*sizeof(int));
+    memset(kratings, 0, sizeof(int)*(K+1));
 
 }
 
