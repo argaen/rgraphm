@@ -105,14 +105,14 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 		(random) ? (group = (floor(gsl_rng_uniform(rgen) * (double)(*d1).size())) + 1) : group=i;
 		(*d1)[i].set_group(group);
 		((*groups1)[group]) = Group(group, K);
-		(*groups1)[group].members[group]=(*d1)[i];
+		(*groups1)[group].members[group]=&((*d1)[i]);
 	}
 	
 	for (int i = 1; i<(*d2).size()+1; ++i){
 		(random) ? (group = (floor(gsl_rng_uniform(rgen) * (double)(*d2).size())) + 1) : group=i;
 		(*d2)[i].set_group(group);
 		((*groups2)[group]) = Group(group, K);
-		(*groups2)[group].members[group]=(*d2)[i];
+		(*groups2)[group].members[group]=&((*d2)[i]);
 	}
 
 	for (Groups::iterator g1 = groups1->begin(); g1 != groups1->end(); ++g1){
@@ -120,10 +120,10 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 
 		//Groups 2 info filling
 			for(GroupNodes::iterator it1 = g2->second.members.begin(); it1 != g2->second.members.end(); ++it1)
-    		    for (Links::iterator nit = it1->second.neighbours.begin(); nit != it1->second.neighbours.end(); ++nit){
+    		    for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit){
         		    ++nlinks;
             		for(GroupNodes::iterator it2 = g1->second.members.begin(); it2 != g1->second.members.end(); ++it2)
-                		if (nit->second.get_id() == it2->second.get_id())
+                		if (nit->second.get_id() == it2->second->get_id())
                     		++ngrouplinks;
                 
 	        	}
@@ -141,10 +141,10 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 		//Groups 1 info filling
 
 			for(GroupNodes::iterator it1 = g1->second.members.begin(); it1 != g1->second.members.end(); ++it1)
-		        for (Links::iterator nit = it1->second.neighbours.begin(); nit != it1->second.neighbours.end(); ++nit){
+		        for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit){
         		    ++nlinks;
 		            for(GroupNodes::iterator it2 = g2->second.members.begin(); it2 != g2->second.members.end(); ++it2)
-		                if (nit->second.get_id() == it2->second.get_id())
+		                if (nit->second.get_id() == it2->second->get_id())
         		            ++ngrouplinks;
                 
         		}
@@ -294,8 +294,8 @@ int main(int argc, char **argv){
     for (Groups::iterator it = (groups1).begin(); it != (groups1).end(); ++it){
 		std::cout << "[Group:" << it->second.get_id();
         for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
-            std::cout << ", Node:" << it1->second.get_id() << " Links: ";
-                for (Links::iterator nit = it1->second.neighbours.begin(); nit != it1->second.neighbours.end(); ++nit)
+            std::cout << ", Node:" << it1->second->get_id() << " Links: ";
+                for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit)
                     std::cout << nit->second.get_id() << ", ";
 
         }
