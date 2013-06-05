@@ -6,12 +6,13 @@
 #include <gsl/gsl_sf_gamma.h>
 #include <boost/unordered_map.hpp>
 #include <vector>
+#include <iomanip>
 
 #include "Node.h"
 #include "Link.h"
 #include "Group.h"
 
-#define STEPS 10
+#define STEPS 100
 
 typedef boost::unordered_map<int, Node> Hash_Map;
 //typedef std::vector<Node> Group;
@@ -165,7 +166,7 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 /* ##################################### */
 int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K){
 
-	bool visitedgroup[K+1];
+	bool visitedgroup[K+1]; //BAD, IT MUST HAVE THE LENGTH OF THE HIGHER ID OF THE NODE OR CONVERT IT TO HASHMAP
 	memset( visitedgroup, false, (K+1)*sizeof(bool) );
 	Group *src_g, *dest_g;
 	int newgrp, oldgrp;
@@ -186,38 +187,38 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	dest_g = &(*g1)[newgrp];
 
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-		if (!visitedgroup[it->second.get_id()]){
-		    id = (*d2)[it->second.get_id()].get_group();
+        id = (*d2)[it->second.get_id()].get_group();
+		if (!visitedgroup[id]){
 			dH -= gsl_sf_lnfact(src_g->g2glinks[id][0] + K - 1);
 			dH -= gsl_sf_lnfact(dest_g->g2glinks[id][0] + K -1);
 			for (int i = 1; i<K+1; ++i){
 				nr = src_g->g2glinks[id][i];
-				dH -= gsl_sf_lnfact(nr);
+				dH -= -gsl_sf_lnfact(nr);
 				nr = dest_g->g2glinks[id][i];
-				dH -= gsl_sf_lnfact(nr);		
+				dH -= -gsl_sf_lnfact(nr);		
 			}
-			visitedgroup[it->second.get_id()] = true;
+			visitedgroup[id] = true;
 		}
 	}
 
 	if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
 		dH += gsl_sf_lnfact(d1->size() - g1->size());
 
-	src_g->remove_node(n, d1);
-	dest_g->add_node(n, d1);
+	src_g->remove_node(n, d2);
+	dest_g->add_node(n, d2);
 
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-		if (visitedgroup[it->second.get_id()]){
-	        id = (*d2)[it->second.get_id()].get_group();
+        id = (*d2)[it->second.get_id()].get_group();
+		if (visitedgroup[id]){
     	    dH += gsl_sf_lnfact(src_g->g2glinks[id][0] + K - 1);
 	        dH += gsl_sf_lnfact(dest_g->g2glinks[id][0] + K -1);
     	    for (int i = 1; i<K+1; ++i){
 	            nr = src_g->g2glinks[id][i];
-    	        dH += gsl_sf_lnfact(nr);
+    	        dH += -gsl_sf_lnfact(nr);
         	    nr = dest_g->g2glinks[id][i];
-            	dH += gsl_sf_lnfact(nr);
+            	dH += -gsl_sf_lnfact(nr);
         	}
-			visitedgroup[it->second.get_id()] = false;
+			visitedgroup[id] = false;
 		}
     }	
 
@@ -232,11 +233,11 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	//else undo the movement
 	else{
 //		std::cout << "Movement not accepted: " << dH << "\n";
-		dest_g->remove_node(n, d1);
-        src_g->add_node(n, d1);
+		dest_g->remove_node(n, d2);
+        src_g->add_node(n, d2);
 	}
 
-	return 0.0;
+	return 0;
 }
 
 void printGroups(Groups g, int mark){
@@ -305,14 +306,17 @@ int main(int argc, char **argv){
 
 
 	H = HKState(mark, &groups1, &groups2, d1c, d2c);
+    double TH;
 	std::cout << "Initial H: "<< H <<"\n";
 	for(int i=0; i<STEPS; i++){
-		std::cout << H << "    " << HKState(mark, &groups1, &groups2, d1c, d2c) << "\n";
-        printf("############GROUPS1################\n");
-        printGroups(groups1, mark);
-        printf("############GROUPS2################\n");
-        printGroups(groups2, mark);
-        printf("###################################\n");
+        TH = HKState(mark, &groups1, &groups2, d1c, d2c);
+        if( TH != H )
+            std::cout << std::setprecision(20) << H << "    " << TH << "\n";
+        /* printf("############GROUPS1################\n"); */
+        /* printGroups(groups1, mark); */
+        /* printf("############GROUPS2################\n"); */
+        /* printGroups(groups2, mark); */
+        /* printf("###################################\n"); */
 		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark);
 	}
 

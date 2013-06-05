@@ -50,8 +50,8 @@ int Group::add_node ( Node *n, Hash_Map *d ) {
 	Group::members[n->get_id()] = n;
 	Group::set_nlinks(Group::nlinks + n->neighbours.size());
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-		++Group::g2glinks[it->second.get_id()][it->second.get_weight()];
-		++Group::g2glinks[it->second.get_id()][0];
+		++Group::g2glinks[d->at(it->second.get_id()).get_group()][it->second.get_weight()];
+		++Group::g2glinks[d->at(it->second.get_id()).get_group()][0];
 		++Group::kratings[it->second.get_weight()];
 	}
  	
@@ -65,8 +65,8 @@ int Group::remove_node ( Node *n, Hash_Map *d ) {
 	Group::members.erase(n->get_id());
 	Group::set_nlinks(Group::nlinks - n->neighbours.size());
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-		--Group::g2glinks[it->second.get_id()][it->second.get_weight()];
-		--Group::g2glinks[it->second.get_id()][0];
+		--Group::g2glinks[d->at(it->second.get_id()).get_group()][it->second.get_weight()];
+		--Group::g2glinks[d->at(it->second.get_id()).get_group()][0];
 		--Group::kratings[it->second.get_weight()];
 	}
 	return 0;
