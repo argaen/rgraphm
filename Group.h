@@ -4,6 +4,7 @@
 #include <vector>
 #include "Node.h"
 
+typedef boost::unordered_map<int, Node> Hash_Map;
 typedef boost::unordered_map< int , Node* > GroupNodes;
 typedef boost::unordered_map< int, boost::unordered_map < int, int > > G2GRelations;
 
@@ -27,8 +28,8 @@ class Group {
 		void set_id ( int id );
 		void set_nlinks ( int nlinks );
 
-		int add_node ( Node n );
-		int remove_node ( Node n );
+		int add_node ( Node *n, Hash_Map *d );
+		int remove_node ( Node *n, Hash_Map *d );
 };
 
 #endif

@@ -11,7 +11,7 @@
 #include "Link.h"
 #include "Group.h"
 
-#define STEPS 100
+#define STEPS 10
 
 typedef boost::unordered_map<int, Node> Hash_Map;
 //typedef std::vector<Node> Group;
@@ -96,27 +96,29 @@ double HKState(int K, Groups *g1, Groups *g2, Hash_Map d1, Hash_Map d2){
 /* ##################################### */
 void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random){
 
-	int nweight[K+1];
-	memset(nweight, 0, sizeof(int)*(K+1));
+	int nweight1[K+1], nweight2[K+2];
 	int nlinks = 0, ngrouplinks = 0;
 	int group;
-	
+
 	for (int i = 1; i<(*d1).size()+1; ++i){
 		(random) ? (group = (floor(gsl_rng_uniform(rgen) * (double)(*d1).size())) + 1) : group=i;
 		(*d1)[i].set_group(group);
 		((*groups1)[group]) = Group(group, K);
-		(*groups1)[group].members[group]=&((*d1)[i]);
+		(*groups1)[group].members[i]=&((*d1)[i]);
 	}
 	
 	for (int i = 1; i<(*d2).size()+1; ++i){
 		(random) ? (group = (floor(gsl_rng_uniform(rgen) * (double)(*d2).size())) + 1) : group=i;
 		(*d2)[i].set_group(group);
 		((*groups2)[group]) = Group(group, K);
-		(*groups2)[group].members[group]=&((*d2)[i]);
+		(*groups2)[group].members[i]=&((*d2)[i]);
 	}
 
 	for (Groups::iterator g1 = groups1->begin(); g1 != groups1->end(); ++g1){
         for (Groups::iterator g2 = groups2->begin(); g2 != groups2->end(); ++g2){
+        memset(nweight1, 0, sizeof(int)*(K+1));
+        memset(nweight2, 0, sizeof(int)*(K+1));
+        ngrouplinks = nlinks = 0;
 
 		//Groups 2 info filling
 			for(GroupNodes::iterator it1 = g2->second.members.begin(); it1 != g2->second.members.end(); ++it1)
@@ -125,20 +127,18 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
             		for(GroupNodes::iterator it2 = g1->second.members.begin(); it2 != g1->second.members.end(); ++it2)
                 		if (nit->second.get_id() == it2->second->get_id()){
                     		++ngrouplinks;
-                            nweight[it2->second->get_id()]++;
+                            nweight2[nit->second.get_weight()]++;
                         }
-                
 	        	}
 
 			g2->second.set_nlinks(nlinks);
 		    g2->second.g2glinks[g1->second.get_id()][0] = ngrouplinks;
 		    for(int i=1; i<K+1; ++i){
-		        g2->second.g2glinks[g1->second.get_id()][i] = nweight[i];
-		        g2->second.kratings[i] += nweight[i];
+		        g2->second.g2glinks[g1->second.get_id()][i] = nweight2[i];
+		        g2->second.kratings[i] += nweight2[i];
 		    }
 
 		    nlinks = ngrouplinks = 0;
-		    memset( nweight, 0, (K+1)*sizeof(int) );
 
 		//Groups 1 info filling
 
@@ -148,21 +148,16 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 		            for(GroupNodes::iterator it2 = g2->second.members.begin(); it2 != g2->second.members.end(); ++it2)
 		                if (nit->second.get_id() == it2->second->get_id()){
         		            ++ngrouplinks;
-                            nweight[it2->second->get_id()]++;
+                            nweight1[nit->second.get_weight()]++;
                         }
-                
         		}
 
 		    g1->second.set_nlinks(nlinks);
 		    g1->second.g2glinks[g2->second.get_id()][0] = ngrouplinks;
 		    for(int i=1; i<K+1; ++i){
-		        g1->second.g2glinks[g2->second.get_id()][i] = nweight[i];
-		        g1->second.kratings[i] += nweight[i];
+		        g1->second.g2glinks[g2->second.get_id()][i] = nweight1[i];
+		        g1->second.kratings[i] += nweight1[i];
 		    }
-		std::cout << "Kratings: ";
-		for (int i=1; i<K+1; ++i)
-			std::cout << nweight[i] << " ";
-		std::cout << "\n";
 		}
 	}
 }
@@ -176,13 +171,13 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	int newgrp, oldgrp;
 	int dice;
 	int id;
-	Node n;
+	Node *n;
 	double dH = 0.0;
 	int nr;
 
 	dice = floor(gsl_rng_uniform(stepgen) * d1->size() + 1);
-	n = d1->at(dice);
-	oldgrp = n.get_group();
+	n = &(d1->at(dice));
+	oldgrp = n->get_group();
 	newgrp = floor(gsl_rng_uniform(groupgen) * d1->size() + 1);
 	while ( newgrp == oldgrp ) 
 		newgrp = floor(gsl_rng_uniform(groupgen) * d1->size() + 1);
@@ -190,7 +185,7 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	src_g = &(*g1)[oldgrp];
 	dest_g = &(*g1)[newgrp];
 
-	for (Links::iterator it = n.neighbours.begin(); it != n.neighbours.end(); ++it){
+	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
 		if (!visitedgroup[it->second.get_id()]){
 		    id = (*d2)[it->second.get_id()].get_group();
 			dH -= gsl_sf_lnfact(src_g->g2glinks[id][0] + K - 1);
@@ -205,14 +200,13 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 		}
 	}
 
-	//if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
-	//	dH += gsl_sf_lnfact(d1->size() - g1->size());
+	if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
+		dH += gsl_sf_lnfact(d1->size() - g1->size());
 
-	//src_g->remove_node(n);
-	//dest_g->add_node(n);
-	(*d1)[n.get_id()].set_group(dest_g->get_id());
+	src_g->remove_node(n, d1);
+	dest_g->add_node(n, d1);
 
-	for (Links::iterator it = n.neighbours.begin(); it != n.neighbours.end(); ++it){
+	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
 		if (visitedgroup[it->second.get_id()]){
 	        id = (*d2)[it->second.get_id()].get_group();
     	    dH += gsl_sf_lnfact(src_g->g2glinks[id][0] + K - 1);
@@ -227,8 +221,8 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 		}
     }	
 
-	//if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
-       // dH -= gsl_sf_lnfact(d1->size() - g1->size());
+	if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
+        dH -= gsl_sf_lnfact(d1->size() - g1->size());
 
 	//Test if the movement is useful for the system
 	if ( dH <= 0.0 || gsl_rng_uniform(stepgen) < exp(-dH)){
@@ -238,12 +232,29 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	//else undo the movement
 	else{
 //		std::cout << "Movement not accepted: " << dH << "\n";
-//		dest_g->remove_node(n);
-//        src_g->add_node(n);
-   		(*d1)[n.get_id()].set_group(src_g->get_id());
+		dest_g->remove_node(n, d1);
+        src_g->add_node(n, d1);
 	}
 
 	return 0.0;
+}
+
+void printGroups(Groups g, int mark){
+    for (Groups::iterator it = (g).begin(); it != (g).end(); ++it){
+        std::cout << "[Group:" << it->second.get_id();
+        for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
+            std::cout << ", Node:" << it1->second->get_id() << " Links: ";
+                for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit)
+                    std::cout << nit->second.get_id() << ", ";
+
+        }
+        std::cout << "] \nTotalLinks: " <<it->second.get_nlinks() << "\n";
+        std::cout << "Kratings: ";
+        for (int i=1; i<mark+1; ++i)
+            std::cout << it->second.kratings[i] << " ";
+        std::cout << "\n";
+            
+    }
 }
 
 
@@ -292,52 +303,22 @@ int main(int argc, char **argv){
 
 	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false);
 
-	std::cout << " ################ G R O U P S 1 ############### \n";
-    for (Groups::iterator it = (groups1).begin(); it != (groups1).end(); ++it){
-		std::cout << "[Group:" << it->second.get_id();
-        for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
-            std::cout << ", Node:" << it1->second->get_id() << " Links: ";
-                for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit)
-                    std::cout << nit->second.get_id() << ", ";
-
-        }
-		std::cout << "] \nTotalLinks: " <<it->second.get_nlinks() << "\n";
-		std::cout << "Kratings: ";
-		for (int i=1; i<mark+1; ++i)
-			std::cout << it->second.kratings[i] << " ";
-		std::cout << "\n";
-			
-	}
 
 	H = HKState(mark, &groups1, &groups2, d1c, d2c);
 	std::cout << "Initial H: "<< H <<"\n";
-	//for(int i=0; i<STEPS; i++){
-		/* MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark); */
-	//	std::cout << H << "    " << HKState(mark, &groups1, &groups2, d1c, d2c) << "\n";
-	//}
-
-    /*std::cout << " ################ G R O U P S 2 ################ \n";
-    for (Groups::iterator it = (groups2).begin(); it != (groups2).end(); ++it){
-
-        for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
-            std::cout << "[ Group:" << it->second.get_id() << ", Node:" << (*it1).get_id() << " Links: ";
-                 for (Links::iterator nit = (*it1).neighbours.begin(); nit != (*it1).neighbours.end(); ++nit)
-                    std::cout << nit->second.get_id() << ", ";
-                std::cout << "] \n";
-        }
-		std::cout << "TotalLinks: " <<it->second.get_nlinks() << "\n";
-        std::cout << "Kratings: ";
-        for (int i=1; i<mark+1; ++i)
-            std::cout << it->second.kratings[i] << " ";
-        std::cout << "\n";
-	}*/
-
-    std::cout << " ################################################# \n";
-
-	std::cout << "Next H: "<< H <<"\n";
+	for(int i=0; i<STEPS; i++){
+		std::cout << H << "    " << HKState(mark, &groups1, &groups2, d1c, d2c) << "\n";
+        printf("############GROUPS1################\n");
+        printGroups(groups1, mark);
+        printf("############GROUPS2################\n");
+        printGroups(groups2, mark);
+        printf("###################################\n");
+		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark);
+	}
 
 	gsl_rng_free(step_randomizer);
 	gsl_rng_free(groups_randomizer);
 	return 0;
 
 }
+
