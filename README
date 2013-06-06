@@ -80,6 +80,8 @@ try to interpret it. I recommend using Kcachegrind (apt-get install kcachegrind)
 which provides an awesome interface to navigate through call graphs, source
 code (if available) and more.
 
+NOTE: If you want to generate profiling info will valgrind, the program will
+last much more.
 
 ===============================================================================
 

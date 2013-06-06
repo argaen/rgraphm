@@ -1,4 +1,5 @@
 CXX=g++
+#CFLAGS= -Wall -O3 -flto -I.
 CFLAGS= -Wall -g -O3 -flto -I.
 LIBS=-lgsl -lgslcblas -lm
 
