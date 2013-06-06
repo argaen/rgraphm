@@ -67,3 +67,20 @@ A quick representation would be:
 
 
 ===============================================================================
+                          P E R F O R M A N C E
+===============================================================================
+
+To check performance and improve it, use valgrind profiler (apt-get install
+valgrind). Once installed, execute the application as follows:
+
+valgrind --tool=callgrind ./main_recommender args
+
+After execution ends, an output file is generated. You can open it directly and
+try to interpret it. I recommend using Kcachegrind (apt-get install kcachegrind)
+which provides an awesome interface to navigate through call graphs, source
+code (if available) and more.
+
+
+===============================================================================
+
+
