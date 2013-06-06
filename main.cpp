@@ -13,18 +13,27 @@
 
 #define STEPS 100
 
+/** @see Node
+ */
 typedef boost::unordered_map< int, Node > Nodeset;
+/** @see Node
+ */
 typedef std::pair< int, Node > Nodeset_Pair;
 
+/** @see Link
+ */
 typedef std::pair< int, Link > Link_Pair;
 
+/** @see Node
+ */
 typedef std::pair< int, Node* > Member_Pair;
 
+/** @see Group
+ */
 typedef boost::unordered_map< int, Group > Groups;
 
 
 void parseArguments ( int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* groupseed, int* mark ) {
-
 	if ( argc != 11 ) {
 		fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s stepseed -g groupsseed -m mark \n");
         exit(1);
@@ -64,6 +73,11 @@ void parseArguments ( int argc, char **argv, char** inFile, char** qFile, int* s
 }
 
 
+/** \brief Print information of the given Nodeset
+ *
+ * @see Node
+ * @see fillNodesets()
+ */
 void showNodeSet ( Nodeset n ){
     std::cout << "--------------\n";
     for ( Nodeset::iterator it = n.begin(); it != n.end(); ++it ){
@@ -76,9 +90,12 @@ void showNodeSet ( Nodeset n ){
     std::cout << "--------------\n";
 }
 
+/** \brief Print information of the given group.
+ *
+ * @see Group
+ * @see createRandomGroups()
+ */
 void showGroupsInfo ( Groups group ){
-    
-
 	std::cout << " ################ G R O U P S ############### \n";
     for ( Groups::iterator it = ( group ).begin(); it != ( group ).end(); ++it){
 		std::cout << "[Group:" << it->second.get_id();
@@ -100,8 +117,13 @@ void showGroupsInfo ( Groups group ){
 
 }
 
+/** \brief Fill the nodeset structures with the data inside the given file.
+ *
+ * @param tFileName Name of the train file.
+ * @param nodeset1 Pointer to a Nodeset structure where info for first set of nodes is stored.
+ * @param nodeset2 Pointer to a Nodeset structure where info for second set of nodes is stored.
+ */
 int fillNodesets ( char* tFileName, Nodeset *nodeset1, Nodeset *nodeset2 ){
-
     int id1, id2, weight;
 
     std::ifstream inFile ( tFileName );
@@ -119,12 +141,23 @@ int fillNodesets ( char* tFileName, Nodeset *nodeset1, Nodeset *nodeset2 ){
         std::cout << "Couldn't open file " << tFileName << "\n";
         exit(1);
     }
-
-
 }
 
 
-void CreateRandomGroups ( Nodeset *nodeset1, Nodeset *nodeset2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random ){
+/** \brief Create random groups of nodes from both passed nodesets using rgen random seed.
+ *
+ * @param nodeset1 Pointer to a Nodeset structure containing the first set of nodes.
+ * @param nodeset2 Pointer to a Nodeset structure containing the second set of nodes.
+ * @param groups1 Pointer to a Groups structure, where groups created for nodeset1 are stored.
+ * @param groups2 Pointer to a Groups structure, where groups created for nodeset2 are stored.
+ * @param rgen Pointer to a gsl_rng structure used as a random seed for the gsl library.
+ * @param K Integer used to store the maximum mark for links weight. Used for groups initialization.
+ * @param random Boolean indicating if the groups generation should be random or not. If not, each node belongs
+ * to a group with index equal to its identifier.
+ * @see fillNodesets()
+ *
+ */
+void createRandomGroups ( Nodeset *nodeset1, Nodeset *nodeset2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random ){
     
     int nweight[K+1];
     int nlinks = 0, ngrouplinks = 0;
@@ -152,7 +185,6 @@ void CreateRandomGroups ( Nodeset *nodeset1, Nodeset *nodeset2, Groups *groups1,
         ( *groups2 )[group].members[( ( *nodeset2 )[i].get_id() )] = &( ( *nodeset2 )[i] );
     }
 
-   
     //Fill Groups information (link counts, etc)
 
     for ( Groups::iterator it1 = groups1->begin(); it1 != groups1->end(); ++it1 ){
@@ -160,9 +192,6 @@ void CreateRandomGroups ( Nodeset *nodeset1, Nodeset *nodeset2, Groups *groups1,
     
         }
     }
-
-
-
 }
 
 
@@ -193,11 +222,9 @@ int main ( int argc, char **argv ){
     showNodeSet ( nodeset2 );
 
 
-    CreateRandomGroups ( &nodeset1, &nodeset2, &groups1, &groups2, groups_randomizer, mark, true );
+    createRandomGroups ( &nodeset1, &nodeset2, &groups1, &groups2, groups_randomizer, mark, true );
 
     showGroupsInfo ( groups1 );
     showGroupsInfo ( groups2 );
-
-
 
 }
