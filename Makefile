@@ -1,5 +1,5 @@
 CXX=g++
-CFLAGS= -I.
+CFLAGS= -I. -pg
 LIBS=-lgsl -lgslcblas -lm
 
 all: recommendmake

@@ -7,12 +7,14 @@
 #include <boost/unordered_map.hpp>
 #include <vector>
 #include <iomanip>
+#include <sys/time.h>
+
 
 #include "Node.h"
 #include "Link.h"
 #include "Group.h"
 
-#define STEPS 100
+#define STEPS 1000
 
 typedef boost::unordered_map<int, Node> Hash_Map;
 //typedef std::vector<Node> Group;
@@ -166,6 +168,9 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 /* ##################################### */
 int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K){
 
+    struct timeval stop, start;
+    gettimeofday(&start, NULL);
+
 	bool visitedgroup[K+1]; //BAD, IT MUST HAVE THE LENGTH OF THE HIGHER ID OF THE NODE OR CONVERT IT TO HASHMAP
 	memset( visitedgroup, false, (K+1)*sizeof(bool) );
 	Group *src_g, *dest_g;
@@ -236,6 +241,8 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 		dest_g->remove_node(n, d2);
         src_g->add_node(n, d2);
 	}
+    gettimeofday(&stop, NULL);
+    printf("Time %lu\n", stop.tv_usec - start.tv_usec);
 
 	return 0;
 }
