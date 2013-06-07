@@ -168,38 +168,39 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 
 /* ##################################### */
 
-float OpLogFact(LnFactList *lnfactlist, LnFactList *newlnfactlist, int key){
-    double logfact;
-    if ((*lnfactlist).find(key) != (*lnfactlist).end())
-        return (*lnfactlist).at(key);
+double* GenLogFactList(int size){
     
-    if ((*newlnfactlist).find(key) != (*newlnfactlist).end())
-        return (*newlnfactlist).at(key);
-    else{
-        logfact = gsl_sf_lnfact(key);
-        (*newlnfactlist).insert(LnFactList::value_type(key, logfact));
-        return logfact;
-    }
+    double* LogFactList = (double*) calloc(size, sizeof(double));
+
+    for (int i = 0; i<size; i++)
+        LogFactList[i] = gsl_sf_lnfact(i);
+
+    return LogFactList;
 }
 
-int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K, LnFactList *lnfactlist,
-        LnFactList *newlnfactlist){
+double LogFact(int key, int size, double* LogFactList){
+
+    if (size<key)
+        return gsl_sf_lnfact(key);
+    else
+        return LogFactList[key];
+}
+
+int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K, double *lnfactlist, int logsize){
 
 
     struct timeval stop, start;
     gettimeofday(&start, NULL);
 
 	bool visitedgroup[K+1]; //BAD, IT MUST HAVE THE LENGTH OF THE HIGHER ID OF THE NODE OR CONVERT IT TO HASHMAP
-	memset( visitedgroup, false, (K+1)*sizeof(bool) );
+    for (int i=0; i < K+2; i++)
+        visitedgroup[i]=false;
 	Group *src_g, *dest_g;
 	int newgrp, oldgrp;
 	int dice;
 	int id;
 	Node *n;
 	double dH = 0.0;
-    double logfact = 0.0;
-    int logfact_i = 0;
-	int nr;
 
 	dice = gsl_rng_uniform(stepgen) * d1->size() + 1;
 	n = &(d1->at(dice));
@@ -214,19 +215,19 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
         id = (*d2)[it->second.get_id()].get_group();
 		if (!visitedgroup[id]){
-            dH -= OpLogFact(lnfactlist, newlnfactlist, src_g->g2glinks[id][0] + K - 1);
-            dH -= OpLogFact(lnfactlist, newlnfactlist, dest_g->g2glinks[id][0] + K - 1);
+            dH -= LogFact(src_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
+            dH -= LogFact(dest_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
 
 			for (int i = 1; i<K+1; ++i){
-                dH -= -OpLogFact(lnfactlist, newlnfactlist, src_g->g2glinks[id][i]);
-                dH -= -OpLogFact(lnfactlist, newlnfactlist, dest_g->g2glinks[id][i]);
+                dH -= -LogFact(src_g->g2glinks[id][i], logsize, lnfactlist);
+                dH -= -LogFact(dest_g->g2glinks[id][i], logsize, lnfactlist);
 			}
 			visitedgroup[id] = true;
 		}
 	}
 
 	if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
-		dH += gsl_sf_lnfact(d1->size() - g1->size());
+		dH += LogFact(d1->size() - g1->size(), logsize, lnfactlist);
 
 	src_g->remove_node(n, d2);
 	dest_g->add_node(n, d2);
@@ -234,19 +235,19 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
         id = (*d2)[it->second.get_id()].get_group();
 		if (visitedgroup[id]){
-            dH += OpLogFact(lnfactlist, newlnfactlist, src_g->g2glinks[id][0] + K - 1);
-            dH += OpLogFact(lnfactlist, newlnfactlist, dest_g->g2glinks[id][0] + K - 1);
+            dH += LogFact(src_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
+            dH += LogFact(dest_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
 
     	    for (int i = 1; i<K+1; ++i){
-                dH += -OpLogFact(lnfactlist, newlnfactlist, src_g->g2glinks[id][i]);
-                dH += -OpLogFact(lnfactlist, newlnfactlist, dest_g->g2glinks[id][i]);
+                dH += -LogFact(src_g->g2glinks[id][i], logsize, lnfactlist);
+                dH += -LogFact(dest_g->g2glinks[id][i], logsize, lnfactlist);
         	}
 			visitedgroup[id] = false;
 		}
     }	
 
 	if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
-        dH -= gsl_sf_lnfact(d1->size() - g1->size());
+		dH -= LogFact(d1->size() - g1->size(), logsize, lnfactlist);
 
 	//Test if the movement is useful for the system
 	if ( dH <= 0.0 || gsl_rng_uniform(stepgen) < exp(-dH)){
@@ -287,8 +288,7 @@ void printGroups(Groups g, int mark){
 /* ##################################### */
 int main(int argc, char **argv){
 
-	int id1, id2, weight;
-    double lnfact;
+	int id1, id2, weight, logsize=100;
 	double H;
     double *lnfactlist;
 	Hash_Map d1, d2;
@@ -297,7 +297,6 @@ int main(int argc, char **argv){
 	gsl_rng *groups_randomizer, *step_randomizer;
 	char* tFileName;
 	char* qFileName;
-    char* lnfactFileName = "logfact.dat";
 	int groupseed, stepseed;
 	int mark;
 
@@ -325,14 +324,8 @@ int main(int argc, char **argv){
 
 	}else
 		std::cout << "Couldn't open file " << tFileName << "\n";
-
-    std::ifstream ilogfactFile(lnfactFileName);
-    if (ilogfactFile.is_open()){
-        while (ilogfactFile >> id1 >> lnfact)
-            lnfactlist.insert(LnFactList::value_type(id1,lnfact));
-        ilogfactFile.close();
-    }else
-        std::cout << "Couldn't open file " << lnfactFileName << "\n";
+    
+    lnfactlist = GenLogFactList(logsize);
 
 
 	d1c = d1;
@@ -353,18 +346,10 @@ int main(int argc, char **argv){
         /* printf("############GROUPS2################\n"); */
         /* printGroups(groups2, mark); */
         /* printf("###################################\n"); */
-		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, &lnfactlist, &newlnfactlist);
+		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize);
 	}
 
-    std::ofstream ologfactFile(lnfactFileName,std::ios_base::app);
-    if (ologfactFile.is_open()){
-        for (LnFactList::iterator it = newlnfactlist.begin(); it != newlnfactlist.end(); ++it){
-            ologfactFile << std::setprecision(20) << it->first << " " << it->second << "\n"; 
-        }
-        ologfactFile.close();
-    }else
-		std::cout << "Couldn't open file " << lnfactFileName << "to append new calculated logfacts\n";
-
+    free(lnfactlist);
 	gsl_rng_free(step_randomizer);
 	gsl_rng_free(groups_randomizer);
 	return 0;
