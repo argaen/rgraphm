@@ -80,17 +80,16 @@ double Group2GroupH(Group *g1, Group *g2, int K){
 
 
 /* ##################################### */
-double HKState(int K, Groups *g1, Groups *g2, Hash_Map d1, Hash_Map d2){
+double HKState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size){
 	
 	
 	double H = 0.0;
-	int nnod1=0, nnod2=0;
 
 	for (Groups::iterator it1 = g1->begin(); it1 != g1->end(); ++it1)
 		for (Groups::iterator it2 = g2->begin(); it2 != g2->end(); ++it2)
 			H += Group2GroupH(&(it1->second), &(it2->second), K);
 		
-	H -= gsl_sf_lnfact(d1.size() - g1->size()) + gsl_sf_lnfact(d2.size() - g2->size());
+	H -= gsl_sf_lnfact(d1_size - g1->size()) + gsl_sf_lnfact(d2_size - g2->size());
 	
 	return H;
 
@@ -186,11 +185,14 @@ double LogFact(int key, int size, double* LogFactList){
         return LogFactList[key];
 }
 
-int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K, double *lnfactlist, int logsize){
+int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2){
 
 
     struct timeval stop, start;
     gettimeofday(&start, NULL);
+    Groups *g;
+    Hash_Map *d_move, *d_nomove;
 
 	bool visitedgroup[K+1]; //BAD, IT MUST HAVE THE LENGTH OF THE HIGHER ID OF THE NODE OR CONVERT IT TO HASHMAP
     for (int i=0; i < K+2; i++)
@@ -198,22 +200,32 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	Group *src_g, *dest_g;
 	int newgrp, oldgrp;
 	int dice;
+    int set_size_move;
 	int id;
 	Node *n;
 	double dH = 0.0;
 
-	dice = gsl_rng_uniform(stepgen) * d1->size() + 1;
-	n = &(d1->at(dice));
-	oldgrp = n->get_group();
-	newgrp = gsl_rng_uniform(groupgen) * d1->size() + 1;
-	while ( newgrp == oldgrp ) 
-		newgrp = gsl_rng_uniform(groupgen) * d1->size() + 1;
 
-	src_g = &(*g1)[oldgrp];
-	dest_g = &(*g1)[newgrp];
+    /* if (gsl_rng_uniform(stepgen) < (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2)) { */
+        g = g1;d_move = d1;d_nomove = d2;
+    /* }else{ */
+        g = g2;d_move = d2;d_nomove = d1;
+    /* } */
+    set_size_move = d_move->size();
+
+
+    dice = gsl_rng_uniform(stepgen) * set_size_move + 1;
+	n = &(d_move->at(dice));
+	oldgrp = n->get_group();
+	newgrp = gsl_rng_uniform(groupgen) * set_size_move + 1;
+	while ( newgrp == oldgrp ) 
+		newgrp = gsl_rng_uniform(groupgen) * set_size_move + 1;
+
+	src_g = &(*g)[oldgrp];
+	dest_g = &(*g)[newgrp];
 
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-        id = (*d2)[it->second.get_id()].get_group();
+        id = (*d_nomove)[it->second.get_id()].get_group();
 		if (!visitedgroup[id]){
             dH -= LogFact(src_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
             dH -= LogFact(dest_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
@@ -227,13 +239,13 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	}
 
 	if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
-		dH += LogFact(d1->size() - g1->size(), logsize, lnfactlist);
+		dH += LogFact(set_size_move - g1->size(), logsize, lnfactlist);
 
-	src_g->remove_node(n, d2);
-	dest_g->add_node(n, d2);
+	src_g->remove_node(n, d_nomove);
+	dest_g->add_node(n, d_nomove);
 
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-        id = (*d2)[it->second.get_id()].get_group();
+        id = (*d_nomove)[it->second.get_id()].get_group();
 		if (visitedgroup[id]){
             dH += LogFact(src_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
             dH += LogFact(dest_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
@@ -247,7 +259,7 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
     }	
 
 	if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
-		dH -= LogFact(d1->size() - g1->size(), logsize, lnfactlist);
+		dH -= LogFact(set_size_move - g1->size(), logsize, lnfactlist);
 
 	//Test if the movement is useful for the system
 	if ( dH <= 0.0 || gsl_rng_uniform(stepgen) < exp(-dH)){
@@ -257,11 +269,12 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	//else undo the movement
 	else{
 //		std::cout << "Movement not accepted: " << dH << "\n";
-		dest_g->remove_node(n, d2);
-        src_g->add_node(n, d2);
+		dest_g->remove_node(n, d_nomove);
+        src_g->add_node(n, d_nomove);
 	}
     gettimeofday(&stop, NULL);
     printf("Time %lu\n", stop.tv_usec - start.tv_usec);
+
 
 	return 0;
 }
@@ -299,6 +312,7 @@ int main(int argc, char **argv){
 	char* qFileName;
 	int groupseed, stepseed;
 	int mark;
+    int nnod1, nnod2;
 
 	parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &groupseed, &mark);
 
@@ -330,6 +344,8 @@ int main(int argc, char **argv){
 
 	d1c = d1;
 	d2c = d2;	
+    nnod1 = d1.size();
+    nnod2 = d2.size();
 
 	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false);
 
@@ -338,15 +354,15 @@ int main(int argc, char **argv){
     double TH;
 	std::cout << "Initial H: "<< H <<"\n";
 	for(int i=0; i<STEPS; i++){
-        /* TH = HKState(mark, &groups1, &groups2, d1c, d2c); */
-        std::cout << std::setprecision(20) << H << "    " << "\n";
-        /* std::cout << std::setprecision(20) << H << "    " << TH << "\n"; */
-        /* printf("############GROUPS1################\n"); */
-        /* printGroups(groups1, mark); */
-        /* printf("############GROUPS2################\n"); */
-        /* printGroups(groups2, mark); */
-        /* printf("###################################\n"); */
-		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize);
+        TH = HKState(mark, &groups1, &groups2, nnod1, nnod2);
+		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2);
+        /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
+        std::cout << std::setprecision(20) << H << "    " << TH << "\n";
+        printf("############GROUPS1################\n");
+        printGroups(groups1, mark);
+        printf("############GROUPS2################\n");
+        printGroups(groups2, mark);
+        printf("###################################\n");
 	}
 
     free(lnfactlist);
