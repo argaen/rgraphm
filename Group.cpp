@@ -43,16 +43,13 @@ void Group::set_nlinks ( int nlinks ) {
 }
 
 
-int Group::add_node ( Node *n, Hash_Map *d ) {
+int Group::add_node ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
 	n->set_group(Group::id);
-	
 	Group::members[n->get_id()] = n;
-	Group::set_nlinks(Group::nlinks + n->neighbours.size());
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-		++Group::g2glinks[d->at(it->second.get_id()).get_group()][it->second.get_weight()];
-		++Group::g2glinks[d->at(it->second.get_id()).get_group()][0];
-		++Group::kratings[it->second.get_weight()];
+        ++(*gglinks)[Group::id][it->second.get_id()][it->second.get_weight()];
+        ++(*gglinks)[Group::id][d->at(it->second.get_id()).get_group()][0];
 	}
  	
 	return 0;
@@ -60,14 +57,12 @@ int Group::add_node ( Node *n, Hash_Map *d ) {
 }
 
 
-int Group::remove_node ( Node *n, Hash_Map *d ) {
+int Group::remove_node ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
 	Group::members.erase(n->get_id());
-	Group::set_nlinks(Group::nlinks - n->neighbours.size());
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-		--Group::g2glinks[d->at(it->second.get_id()).get_group()][it->second.get_weight()];
-		--Group::g2glinks[d->at(it->second.get_id()).get_group()][0];
-		--Group::kratings[it->second.get_weight()];
+        --(*gglinks)[Group::id][it->second.get_id()][it->second.get_weight()];
+        --(*gglinks)[Group::id][d->at(it->second.get_id()).get_group()][0];
 	}
 	return 0;
 }

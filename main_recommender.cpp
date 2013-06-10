@@ -5,6 +5,7 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <boost/unordered_map.hpp>
+#include <boost/multi_array.hpp>
 #include <vector>
 #include <iomanip>
 #include <sys/time.h>
@@ -14,12 +15,15 @@
 #include "Link.h"
 #include "Group.h"
 
-#define STEPS 1000
+#define STEPS 10
 
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
 //typedef std::vector<Node> Group;
 typedef boost::unordered_map<int, Group> Groups;
+typedef boost::unordered_map<int, Group> Groups;
+typedef boost::multi_array<double, 3> GGLinks;
+typedef GGLinks::index GG_index;
 
 /* ##################################### */
 void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* groupseed, int* mark) {
@@ -67,27 +71,29 @@ void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* ste
 }
 
 /* ##################################### */
-double Group2GroupH(Group *g1, Group *g2, int K){
+double Group2GroupH(Group *g1, Group *g2, int K, GGLinks *gglinks){
 
 	double H = 0.0;
 
-	H += gsl_sf_lnfact(g1->g2glinks[g2->get_id()][0] + K -1);
+	/* H += gsl_sf_lnfact(g1->g2glinks[g2->get_id()][0] + K -1); */
+	H += gsl_sf_lnfact((*gglinks)[g1->get_id()][g2->get_id()][0] + K -1);
 	for(int i=1; i<K+1; ++i){
-		H -= gsl_sf_lnfact(g1->g2glinks[g2->get_id()][i]);
+		/* H -= gsl_sf_lnfact(g1->g2glinks[g2->get_id()][i]); */
+        H -= gsl_sf_lnfact((*gglinks)[g1->get_id()][g2->get_id()][i]);
 	}
     return H;
 }
 
 
 /* ##################################### */
-double HKState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size){
+double HKState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks *gglinks){
 	
 	
 	double H = 0.0;
 
 	for (Groups::iterator it1 = g1->begin(); it1 != g1->end(); ++it1)
 		for (Groups::iterator it2 = g2->begin(); it2 != g2->end(); ++it2)
-			H += Group2GroupH(&(it1->second), &(it2->second), K);
+			H += Group2GroupH(&(it1->second), &(it2->second), K, gglinks);
 		
 	H -= gsl_sf_lnfact(d1_size - g1->size()) + gsl_sf_lnfact(d2_size - g2->size());
 	
@@ -97,7 +103,7 @@ double HKState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size){
 
 
 /* ##################################### */
-void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random){
+void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random, GGLinks *gglinks){
 
 	int nweight1[K+1], nweight2[K+2];
 	int nlinks = 0, ngrouplinks = 0;
@@ -157,7 +163,9 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 
 		    g1->second.set_nlinks(nlinks);
 		    g1->second.g2glinks[g2->second.get_id()][0] = ngrouplinks;
+            (*gglinks)[g1->second.get_id()][g2->second.get_id()][0] = ngrouplinks;
 		    for(int i=1; i<K+1; ++i){
+                (*gglinks)[g1->second.get_id()][g2->second.get_id()][i] = nweight1[i];
 		        g1->second.g2glinks[g2->second.get_id()][i] = nweight1[i];
 		        g1->second.kratings[i] += nweight1[i];
 		    }
@@ -186,7 +194,7 @@ double LogFact(int key, int size, double* LogFactList){
 }
 
 int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2){
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks){
 
 
     struct timeval stop, start;
@@ -209,7 +217,7 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
     /* if (gsl_rng_uniform(stepgen) < (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2)) { */
         g = g1;d_move = d1;d_nomove = d2;
     /* }else{ */
-        g = g2;d_move = d2;d_nomove = d1;
+        /* g = g2;d_move = d2;d_nomove = d1; */
     /* } */
     set_size_move = d_move->size();
 
@@ -227,12 +235,12 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
         id = (*d_nomove)[it->second.get_id()].get_group();
 		if (!visitedgroup[id]){
-            dH -= LogFact(src_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
-            dH -= LogFact(dest_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
+            dH -= LogFact((*gglinks)[src_g->get_id()][id][0] + K - 1, logsize, lnfactlist);
+            dH -= LogFact((*gglinks)[dest_g->get_id()][id][0] + K - 1, logsize, lnfactlist);
 
 			for (int i = 1; i<K+1; ++i){
-                dH -= -LogFact(src_g->g2glinks[id][i], logsize, lnfactlist);
-                dH -= -LogFact(dest_g->g2glinks[id][i], logsize, lnfactlist);
+                dH -= -LogFact((*gglinks)[src_g->get_id()][id][i], logsize, lnfactlist);
+                dH -= -LogFact((*gglinks)[dest_g->get_id()][id][i], logsize, lnfactlist);
 			}
 			visitedgroup[id] = true;
 		}
@@ -241,18 +249,18 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
 		dH += LogFact(set_size_move - g1->size(), logsize, lnfactlist);
 
-	src_g->remove_node(n, d_nomove);
-	dest_g->add_node(n, d_nomove);
+	src_g->remove_node(n, d_nomove, gglinks);
+	dest_g->add_node(n, d_nomove, gglinks);
 
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
         id = (*d_nomove)[it->second.get_id()].get_group();
 		if (visitedgroup[id]){
-            dH += LogFact(src_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
-            dH += LogFact(dest_g->g2glinks[id][0] + K - 1, logsize, lnfactlist);
+            dH += LogFact((*gglinks)[src_g->get_id()][id][0] + K - 1, logsize, lnfactlist);
+            dH += LogFact((*gglinks)[dest_g->get_id()][id][0] + K - 1, logsize, lnfactlist);
 
     	    for (int i = 1; i<K+1; ++i){
-                dH += -LogFact(src_g->g2glinks[id][i], logsize, lnfactlist);
-                dH += -LogFact(dest_g->g2glinks[id][i], logsize, lnfactlist);
+                dH += -LogFact((*gglinks)[src_g->get_id()][id][i], logsize, lnfactlist);
+                dH += -LogFact((*gglinks)[dest_g->get_id()][id][i], logsize, lnfactlist);
         	}
 			visitedgroup[id] = false;
 		}
@@ -269,8 +277,8 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	//else undo the movement
 	else{
 //		std::cout << "Movement not accepted: " << dH << "\n";
-		dest_g->remove_node(n, d_nomove);
-        src_g->add_node(n, d_nomove);
+		dest_g->remove_node(n, d_nomove, gglinks);
+        src_g->add_node(n, d_nomove, gglinks);
 	}
     gettimeofday(&stop, NULL);
     printf("Time %lu\n", stop.tv_usec - start.tv_usec);
@@ -347,22 +355,24 @@ int main(int argc, char **argv){
     nnod1 = d1.size();
     nnod2 = d2.size();
 
-	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false);
+    GGLinks gglinks(boost::extents[100][100][mark+1]);
+
+	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false, &gglinks);
 
 
-	H = HKState(mark, &groups1, &groups2, d1c, d2c);
+	H = HKState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
     double TH;
 	std::cout << "Initial H: "<< H <<"\n";
 	for(int i=0; i<STEPS; i++){
-        TH = HKState(mark, &groups1, &groups2, nnod1, nnod2);
-		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2);
+		MCStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks);
+        TH = HKState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
         std::cout << std::setprecision(20) << H << "    " << TH << "\n";
-        printf("############GROUPS1################\n");
-        printGroups(groups1, mark);
-        printf("############GROUPS2################\n");
-        printGroups(groups2, mark);
-        printf("###################################\n");
+        /* printf("############GROUPS1################\n"); */
+        /* printGroups(groups1, mark); */
+        /* printf("############GROUPS2################\n"); */
+        /* printGroups(groups2, mark); */
+        /* printf("###################################\n"); */
 	}
 
     free(lnfactlist);
