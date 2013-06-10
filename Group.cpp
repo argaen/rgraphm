@@ -11,8 +11,6 @@ Group::Group ( int id, int K ) {
 		
 	Group::id = id;
 	Group::k = K;
-    kratings = (int*) malloc((K+1)*sizeof(int));
-    memset(kratings, 0, sizeof(int)*(K+1));
 
 }
 
@@ -29,19 +27,6 @@ void Group::set_id ( int id ) {
 
 	Group::id = id;
 }
-
-
-int Group::get_nlinks () const {
-	
-	return Group::nlinks;
-}
-
-
-void Group::set_nlinks ( int nlinks ) {
-
-	Group::nlinks = nlinks;
-}
-
 
 int Group::add_node ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
