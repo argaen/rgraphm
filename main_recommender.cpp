@@ -27,8 +27,6 @@ typedef GGLinks::index GG_index;
 
 /* ##################################### */
 void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* groupseed, int* mark) {
-
-	
 	if (argc != 11) {
 
 		fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s stepseed -g groupsseed -m mark \n");
@@ -70,9 +68,35 @@ void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* ste
 		}
 }
 
+int GetDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups){
+
+    int nrep = 10, step;
+    int x1, x2;
+
+    x2 = (nnod1 + nnod2) / 5;
+    if (x2 < 10)
+        x2 = 10;
+    x1 = x2 / 4;
+
+    for (int i=0; i<nrep; i++){
+
+        printf("Estimating decorrelation time %d/%d", i,nrep);
+
+        for (step=0; step<=x2; step++){
+            MCStepKState(groups1, groups2, d1c, d2c, step_randomizer, groups_randomizer, H, mark, lnfactlist, logsize, nnod1, nnod2, gglinks);
+
+        }
+
+
+    }
+
+
+}
+
+
 /* ##################################### */
 double Group2GroupH(Group *g1, Group *g2, int K, GGLinks *gglinks){
-
 	double H = 0.0;
 
 	/* H += gsl_sf_lnfact(g1->g2glinks[g2->get_id()][0] + K -1); */
@@ -87,8 +111,6 @@ double Group2GroupH(Group *g1, Group *g2, int K, GGLinks *gglinks){
 
 /* ##################################### */
 double HKState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks *gglinks){
-	
-	
 	double H = 0.0;
 
 	for (Groups::iterator it1 = g1->begin(); it1 != g1->end(); ++it1)
@@ -104,7 +126,6 @@ double HKState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks 
 
 /* ##################################### */
 void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random, GGLinks *gglinks){
-
 	int nweight[K+1];
 	int ngrouplinks;
 	int group;
@@ -149,7 +170,6 @@ void CreateRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 /* ##################################### */
 
 double* GenLogFactList(int size){
-    
     double* LogFactList = (double*) calloc(size, sizeof(double));
 
     for (int i = 0; i<size; i++)
@@ -159,7 +179,6 @@ double* GenLogFactList(int size){
 }
 
 double LogFact(int key, int size, double* LogFactList){
-
     if (size<key)
         return gsl_sf_lnfact(key);
     else
@@ -174,15 +193,13 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
     gettimeofday(&start, NULL);
     Groups *g;
     Hash_Map *d_move, *d_nomove;
+    int bnnod = (nnod1>nnod2) ? nnod1+1 : nnod2+1;
 
-	bool visitedgroup[K+1]; //BAD, IT MUST HAVE THE LENGTH OF THE HIGHER ID OF THE NODE OR CONVERT IT TO HASHMAP
-    for (int i=0; i < K+2; i++)
+	bool visitedgroup[bnnod]; 
+    for (int i=0; i < bnnod; i++)
         visitedgroup[i]=false;
 	Group *src_g, *dest_g;
-	int newgrp, oldgrp;
-	int dice;
-    int set_size_move;
-	int id;
+	int newgrp, oldgrp, dice, set_size_move, id;
     bool set_ind;
 	Node *n;
 	double dH = 0.0;
@@ -268,15 +285,9 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
 		dH -= LogFact(set_size_move - g1->size(), logsize, lnfactlist);
 
-	//Test if the movement is useful for the system
 	if ( dH <= 0.0 || gsl_rng_uniform(stepgen) < exp(-dH)){
-//		std::cout << "Next dH: "<< dH <<"\n";	
 		*H += dH;
-	}
-	//else undo the movement
-	else{
-//		std::cout << "Movement not accepted: " << dH << "\n";
-
+	}else{
         if(set_ind){
             dest_g->remove_node_s1(n, d_nomove, gglinks);
             src_g->add_node_s1(n, d_nomove, gglinks);
@@ -309,6 +320,7 @@ void printGroups(Groups g, int mark){
 /* ##################################### */
 int main(int argc, char **argv){
 
+    int decorStep;
 	int id1, id2, weight, logsize=100;
 	double H;
     double *lnfactlist;
@@ -356,6 +368,9 @@ int main(int argc, char **argv){
     nnod2 = d2.size();
 
     GGLinks gglinks(boost::extents[nnod1+2][nnod2+2][mark+1]);
+
+
+    GetDecorrelationKState();
 
 	CreateRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false, &gglinks);
 
