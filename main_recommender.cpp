@@ -15,7 +15,7 @@
 #include "Link.h"
 #include "Group.h"
 
-#define STEPS 10
+#define STEPS 1000
 
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
@@ -188,12 +188,10 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	double dH = 0.0;
 
 
-    if (gsl_rng_uniform(stepgen) < (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2)) {
+    if (gsl_rng_uniform(stepgen) < (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2)){
         g = g1;d_move = d1;d_nomove = d2;set_ind = true;
-        printf("Set 1 movement\n");
     }else{
         g = g2;d_move = d2;d_nomove = d1;set_ind = false;
-        printf("Set 2 movement\n");
     }
     set_size_move = d_move->size();
 
@@ -235,8 +233,13 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
 		dH += LogFact(set_size_move - g1->size(), logsize, lnfactlist);
 
-	src_g->remove_node(n, d_nomove, gglinks);
-	dest_g->add_node(n, d_nomove, gglinks);
+    if (set_ind){
+        src_g->remove_node_s1(n, d_nomove, gglinks);
+        dest_g->add_node_s1(n, d_nomove, gglinks);
+    }else{
+        src_g->remove_node_s2(n, d_nomove, gglinks);
+        dest_g->add_node_s2(n, d_nomove, gglinks);
+    }
 
 	for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
         id = (*d_nomove)[it->second.get_id()].get_group();
@@ -273,8 +276,14 @@ int MCStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	//else undo the movement
 	else{
 //		std::cout << "Movement not accepted: " << dH << "\n";
-		dest_g->remove_node(n, d_nomove, gglinks);
-        src_g->add_node(n, d_nomove, gglinks);
+
+        if(set_ind){
+            dest_g->remove_node_s1(n, d_nomove, gglinks);
+            src_g->add_node_s1(n, d_nomove, gglinks);
+        }else{
+            dest_g->remove_node_s2(n, d_nomove, gglinks);
+            src_g->add_node_s2(n, d_nomove, gglinks);
+        }
 	}
     gettimeofday(&stop, NULL);
     printf("Time %lu\n", stop.tv_usec - start.tv_usec);

@@ -24,8 +24,10 @@ class Group {
 		int get_id () const;
 		void set_id ( int id );
 
-		int add_node ( Node *n, Hash_Map *d, GGLinks *gglinks );
-		int remove_node ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int add_node_s1 ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int add_node_s2 ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int remove_node_s1 ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int remove_node_s2 ( Node *n, Hash_Map *d, GGLinks *gglinks );
 };
 
 #endif
