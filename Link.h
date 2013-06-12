@@ -9,11 +9,11 @@ class Link {
 		Link();
 		Link(int id, int weight);
 
-		int get_id() const;
-		int get_weight() const;
+		int getId() const;
+		int getWeight() const;
 
-		void set_id(int id);
-		void set_weight(int weigth);
+		void setId(int id);
+		void setWeight(int weigth);
 };
 
 #endif

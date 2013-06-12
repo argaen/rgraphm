@@ -8,7 +8,6 @@
 typedef boost::unordered_map<int, Node> Hash_Map;
 typedef boost::unordered_map< int , Node* > GroupNodes;
 typedef boost::multi_array<int, 3> GGLinks;
-typedef GGLinks::index GG_index;
 
 class Group {
 	int id;
@@ -21,13 +20,13 @@ class Group {
 		Group ( int id );
 		Group ( int id, int K);
 
-		int get_id () const;
-		void set_id ( int id );
+		int getId () const;
+		void setId ( int id );
 
-		int add_node_s1 ( Node *n, Hash_Map *d, GGLinks *gglinks );
-		int add_node_s2 ( Node *n, Hash_Map *d, GGLinks *gglinks );
-		int remove_node_s1 ( Node *n, Hash_Map *d, GGLinks *gglinks );
-		int remove_node_s2 ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int addNodeS1 ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int addNodeS2 ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int removeNodeS1 ( Node *n, Hash_Map *d, GGLinks *gglinks );
+		int removeNodeS2 ( Node *n, Hash_Map *d, GGLinks *gglinks );
 };
 
 #endif

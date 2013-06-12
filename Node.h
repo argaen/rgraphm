@@ -16,11 +16,11 @@ class Node {
 		Node();
 		Node(int id);
 
-		int get_id() const;
-		int get_group() const;
+		int getId() const;
+		int getGroup() const;
 
-		void set_id(int id);
-		void set_group(int id);
+		void setId(int id);
+		void setGroup(int id);
 };
 
 #endif

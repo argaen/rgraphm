@@ -3,18 +3,18 @@
 Link::Link (int id, int weight) { Link::id=id;Link::weight=weight; }
 Link::Link() {}
 
-int Link::get_id() const {
+int Link::getId() const {
 	return Link::id;
 }
 
-int Link::get_weight() const {
+int Link::getWeight() const {
 	return Link::weight;
 }
 
-void Link::set_id(int id) {
+void Link::setId(int id) {
 	Link::id = id;
 }
 
-void Link::set_weight(int weigth) {
+void Link::setWeight(int weigth) {
 	Link::weight = weigth;
 }

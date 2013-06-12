@@ -4,19 +4,19 @@ Node::Node (int id) { Node::id=id; }
 Node::Node() {}
 
 
-int Node::get_id() const {
+int Node::getId() const {
 	return Node::id;
 }
 
-int Node::get_group() const {
+int Node::getGroup() const {
 	return Node::group;
 }
 
 
-void Node::set_id(int id) {
+void Node::setId(int id) {
 	Node::id = id;
 }
 
-void Node::set_group(int group) {
+void Node::setGroup(int group) {
 	Node::group = group;
 }
