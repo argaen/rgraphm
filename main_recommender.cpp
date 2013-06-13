@@ -14,7 +14,8 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 1000
+#define STEPS 100000
+#define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
@@ -328,7 +329,8 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 int main(int argc, char **argv){
 
     int decorStep;
-	int id1, id2, weight, logsize=100;
+	int id1, id2, weight, logsize=LOGSIZE;
+    int norm=0;
 	double H;
     double *lnfactlist;
 	Hash_Map d1, d2;
@@ -374,6 +376,8 @@ int main(int argc, char **argv){
     nnod1 = d1.size();
     nnod2 = d2.size();
 
+    double **scores = calloc(mark*nqueries, sizeof(double));
+
     GGLinks gglinks(boost::extents[nnod1+2][nnod2+2][mark+1]);
 
 
@@ -393,14 +397,24 @@ int main(int argc, char **argv){
     double TH;
 	for(int i=0; i<STEPS; i++){
 		mcStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
-        TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
+        /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); */
+        /* std::cout << std::setprecision(20) << H << "    " << TH << "\n"; */
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
-        std::cout << std::setprecision(20) << H << "    " << TH << "\n";
         /* printf("############GROUPS1################\n"); */
         /* printGroups(groups1, mark); */
         /* printf("############GROUPS2################\n"); */
         /* printGroups(groups2, mark); */
         /* printf("###################################\n"); */
+        /* ++norm; */
+        /* for (k=0; k<K; k++) { */
+        /*   for (q=0; q<nquery; q++) { */
+        /* nk = G1G2[k][querySet[q]->n1->inGroup][querySet[q]->n2->inGroup]; */
+        /* n = 0; */
+        /* for (k2=0; k2<K; k2++) */
+        /*   n += G1G2[k2][querySet[q]->n1->inGroup][querySet[q]->n2->inGroup]; */
+        /* score[k][q] += (float)(nk + 1) / (float)(n + K); */
+        /*   } */
+        /* } */
 	}
 
     free(lnfactlist);
