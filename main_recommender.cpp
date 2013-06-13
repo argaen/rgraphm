@@ -14,7 +14,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 10
+#define STEPS 1000
 
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
@@ -99,7 +99,7 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 /* ##################################### */
 
 int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks){
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks, int decorStep){
 
 
     /* struct timeval stop, start; */
@@ -119,7 +119,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
     double set_ratio = (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2);
 
 
-    /* for (move=0; move<(nnod1+nnod2)*factor; move++) { */
+    /* for (int move=0; move<(nnod1+nnod2)*decorStep; move++) { */
         if (gsl_rng_uniform(stepgen) < set_ratio){
             g = g1;d_move = d1;d_nomove = d2;set_ind = true;
         }else{
@@ -219,6 +219,39 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	return 0;
 }
 
+void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, int decorStep){
+
+    double HMean0=1.e10, HStd0=1.e-10, HMean1, HStd1, *Hvalues;
+    int nrep=20;
+    int equilibrated=0;
+
+    Hvalues = (double*)calloc(nrep, sizeof(double));
+
+    do {
+        for (int i=0; i<nrep; i++){
+            mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, decorStep);
+            Hvalues[i] = *H;
+        }
+
+        HMean1 = mean(Hvalues, nrep);
+        HStd1 = stddev(Hvalues, nrep);
+
+        if (HMean0 - HStd0 / sqrt(nrep) < HMean1 + HStd1 / sqrt(nrep)) {
+            equilibrated++;
+            printf("#\tequilibrated (%d/5) H=%lf\n", equilibrated, HMean1);
+
+        } else {
+            printf("#\tnot equilibrated yet H0=%g+-%g H1=%g+-%g\n", HMean0, HStd0 / sqrt(nrep), HMean1, HStd1 / sqrt(nrep));
+            HMean0 = HMean1;
+            HStd0 = HStd1;
+            equilibrated = 0;
+        }
+    } while (equilibrated < 5);
+
+    return;
+}
+
 int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
                 double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups){
 
@@ -244,7 +277,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
         g2t = (*g2);
 
         for (step=0; step<=x2; step++){
-            mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups);
+            mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, 1);
 
             if (step == x1){
                 y11 = mutualInfo(g1, &g1t, nnod1, nnod2);
@@ -257,8 +290,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
         (nnod1>1) ? decay1[i] = 2 * getDecay(nnod1, x1, x2, y11, y21) : decay1[i] = 1.e-6;
         (nnod2>1) ? decay2[i] = 2 * getDecay(nnod2, x1, x2, y12, y22) : decay2[i] = 1.e-6;
 
-        printf("# %d %d %d %d %f %f %f %f\n", nnod1, nnod2, x1, x2, y11, y21, y12, y22);
-        printf("# Decorrelation times (estimate %d) = %g %g\n", i + 1, decay1[i], decay2[i]);
+        printf("# Decorrelation times (estimate %d) = %g %g\n\n", i + 1, decay1[i], decay2[i]);
 
         if (decay1[i] < 0. || decay2[i] < 0.){
             i--;
@@ -284,7 +316,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
     for (i=0; i<nrep; i++)
        (fabs(decay[i] - meanDecay) / sigmaDecay > 2) ? result -= decay[i] : ++norm;
 
-    printf("# Decorrelation step: %d\n", (int)(result / norm + 0.5));
+    printf("# Decorrelation step: %d\n\n", (int)(result / norm + 0.5));
 
     return (int)(result / norm + 0.5);
 }
@@ -348,16 +380,19 @@ int main(int argc, char **argv){
 
 	createRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false, &gglinks);
 
+	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); //Initialize H with initial system energy
+	std::cout << "Initial H: "<< H <<"\n";
 
     decorStep = getDecorrelationKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks);
 
+    thermalizeMCKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
+
+
     /* printf("DECORRELATION: %d\n", decorStep); */
 
-	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
     double TH;
-	std::cout << "Initial H: "<< H <<"\n";
 	for(int i=0; i<STEPS; i++){
-		mcStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks);
+		mcStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
         TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
         std::cout << std::setprecision(20) << H << "    " << TH << "\n";
