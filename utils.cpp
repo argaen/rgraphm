@@ -1,5 +1,47 @@
 #include "utils.h"
 
+void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* groupseed, int* mark) {
+	if (argc != 11) {
+
+		fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s stepseed -g groupsseed -m mark \n");
+        exit(1);
+	}
+
+	int c;
+	while ((c = getopt (argc, argv, "t:q:s:g:m:")) != -1)
+    	switch (c) {
+			case 't':
+           		*inFile = optarg;
+	            break;
+			case 'q':
+    	        *qFile = optarg;
+        	    break;
+			case 'g':
+            	*groupseed = atoi(optarg);
+             	break;
+			case 's':
+				*stepseed = atoi(optarg);
+				break;
+			case 'm':
+				*mark = atoi(optarg);
+				break;
+			case '?':
+				if (optopt == 't' || optopt == 'q' || optopt == 'm' || optopt == 's' || optopt == 'g')
+					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+				else if (isprint (optopt))
+					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+				else
+					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
+
+				exit(1);
+
+			default:
+
+				fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s seed -m mark \n");
+				exit(1);
+		}
+}
+
 int ExponentialRootF(const gsl_vector *params, void *points, gsl_vector *f) {
     const double a = gsl_vector_get(params, 0);
     const double b = gsl_vector_get(params, 1);
@@ -115,4 +157,33 @@ double mutualInfo(Groups *g, Groups *gt, int nnod1, int nnod2){
 
     return -2.0 * H12 / (H1 + H2);
 
+}
+
+double* genLogFactList(int size){
+    double* logFactList = (double*) calloc(size, sizeof(double));
+
+    for (int i = 0; i<size; i++)
+        logFactList[i] = gsl_sf_lnfact(i);
+
+    return logFactList;
+}
+
+double logFact(int key, int size, double* logFactList){
+    if (size<key)
+        return gsl_sf_lnfact(key);
+    else
+        return logFactList[key];
+}
+
+void printGroups(Groups g, int mark){
+    for (Groups::iterator it = (g).begin(); it != (g).end(); ++it){
+        std::cout << "[Group:" << it->second.getId();
+        for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
+            std::cout << ", Node:" << it1->second->getId() << " Links: ";
+                for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit)
+                    std::cout << nit->second.getId() << ", ";
+
+        }
+        std::cout << "\n";
+    }
 }

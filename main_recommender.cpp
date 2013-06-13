@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string.h>
 #include <fstream>
 #include <cstdlib>
 #include <gsl/gsl_rng.h>
@@ -21,59 +20,8 @@ typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
 typedef boost::multi_array<int, 3> GGLinks;
 
-struct pair
-{
-  double x0;
-  double y0;
-  double x1;
-  double y1;
-};
 
 /* ##################################### */
-void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* groupseed, int* mark) {
-	if (argc != 11) {
-
-		fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s stepseed -g groupsseed -m mark \n");
-        exit(1);
-	}
-
-	int c;
-	while ((c = getopt (argc, argv, "t:q:s:g:m:")) != -1)
-    	switch (c) {
-			case 't':
-           		*inFile = optarg;
-	            break;
-			case 'q':
-    	        *qFile = optarg;
-        	    break;
-			case 'g':
-            	*groupseed = atoi(optarg);
-             	break;
-			case 's':
-				*stepseed = atoi(optarg);
-				break;
-			case 'm':
-				*mark = atoi(optarg);
-				break;
-			case '?':
-				if (optopt == 't' || optopt == 'q' || optopt == 'm' || optopt == 's' || optopt == 'g')
-					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
-				else if (isprint (optopt))
-					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-				else
-					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
-
-				exit(1);
-
-			default:
-
-				fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s seed -m mark \n");
-				exit(1);
-		}
-}
-
-
-
 
 
 /* ##################################### */
@@ -149,22 +97,6 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 }
 
 /* ##################################### */
-
-double* genLogFactList(int size){
-    double* logFactList = (double*) calloc(size, sizeof(double));
-
-    for (int i = 0; i<size; i++)
-        logFactList[i] = gsl_sf_lnfact(i);
-
-    return logFactList;
-}
-
-double logFact(int key, int size, double* logFactList){
-    if (size<key)
-        return gsl_sf_lnfact(key);
-    else
-        return logFactList[key];
-}
 
 int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
                 double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks){
@@ -358,18 +290,6 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 }
 
 
-void printGroups(Groups g, int mark){
-    for (Groups::iterator it = (g).begin(); it != (g).end(); ++it){
-        std::cout << "[Group:" << it->second.getId();
-        for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
-            std::cout << ", Node:" << it1->second->getId() << " Links: ";
-                for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit)
-                    std::cout << nit->second.getId() << ", ";
-
-        }
-        std::cout << "\n";
-    }
-}
 
 
 /* ##################################### */
