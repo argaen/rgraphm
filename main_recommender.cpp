@@ -14,11 +14,12 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 100000
+#define STEPS 1000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
+typedef boost::unordered_map<Node*, Node*> Queries;
 typedef boost::multi_array<int, 3> GGLinks;
 
 
@@ -330,9 +331,9 @@ int main(int argc, char **argv){
 
     int decorStep;
 	int id1, id2, weight, logsize=LOGSIZE;
-    int norm=0;
 	double H;
     double *lnfactlist;
+    Queries queries;
 	Hash_Map d1, d2;
 	Hash_Map d1c, d2c;
 	Groups groups2, groups1;
@@ -340,8 +341,8 @@ int main(int argc, char **argv){
 	char* tFileName;
 	char* qFileName;
 	int groupseed, stepseed;
-	int mark;
-    int nnod1, nnod2;
+	int mark, k, i, j, q, n, nk;
+    int nnod1, nnod2, nqueries = 0;
 
 	parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &groupseed, &mark);
 
@@ -353,20 +354,18 @@ int main(int argc, char **argv){
 	gsl_rng_set(step_randomizer, stepseed);
 	gsl_rng_set(groups_randomizer, groupseed);
 
-	std::ifstream inFile(tFileName);
-	if (inFile.is_open()){
-		while (inFile >> id1 >> id2 >> weight){
+	std::ifstream tFile(tFileName);
+	if (tFile.is_open()){
+		while (tFile >> id1 >> id2 >> weight){
 			d1.insert(Hash_Map::value_type(id1,Node(id1)));
 			d1[id1].neighbours.insert(Links::value_type(id2,Link(id2, weight)));
 			d2.insert(Hash_Map::value_type(id2,Node(id2)));
 			d2[id2].neighbours.insert(Links::value_type(id1,Link(id1, weight)));
-			
-
 		}
-		inFile.close();
-
+		tFile.close();
 	}else
 		std::cout << "Couldn't open file " << tFileName << "\n";
+
     
     lnfactlist = genLogFactList(logsize);
 
@@ -375,14 +374,22 @@ int main(int argc, char **argv){
 	d2c = d2;	
     nnod1 = d1.size();
     nnod2 = d2.size();
+    nqueries = queries.size();
 
-    double **scores = calloc(mark*nqueries, sizeof(double));
+    double *scores = (double*) calloc(mark, sizeof(double));
 
     GGLinks gglinks(boost::extents[nnod1+2][nnod2+2][mark+1]);
 
-
-
 	createRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false, &gglinks);
+
+	std::ifstream qFile(qFileName);
+	if (qFile.is_open()){
+		while (qFile >> id1 >> id2){
+            queries.insert(Queries::value_type(&(d1c[id1]), &(d2c[id2])));
+		}
+		qFile.close();
+	}else
+		std::cout << "Couldn't open file " << tFileName << "\n";
 
 	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); //Initialize H with initial system energy
 	std::cout << "Initial H: "<< H <<"\n";
@@ -395,27 +402,40 @@ int main(int argc, char **argv){
     /* printf("DECORRELATION: %d\n", decorStep); */
 
     double TH;
-	for(int i=0; i<STEPS; i++){
+	for(i=0; i<STEPS; i++){
 		mcStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
-        /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); */
-        /* std::cout << std::setprecision(20) << H << "    " << TH << "\n"; */
+        TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
+        std::cout << std::setprecision(20) << H << "    " << TH << "\n";
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
         /* printf("############GROUPS1################\n"); */
         /* printGroups(groups1, mark); */
         /* printf("############GROUPS2################\n"); */
         /* printGroups(groups2, mark); */
         /* printf("###################################\n"); */
-        /* ++norm; */
-        /* for (k=0; k<K; k++) { */
-        /*   for (q=0; q<nquery; q++) { */
-        /* nk = G1G2[k][querySet[q]->n1->inGroup][querySet[q]->n2->inGroup]; */
-        /* n = 0; */
-        /* for (k2=0; k2<K; k2++) */
-        /*   n += G1G2[k2][querySet[q]->n1->inGroup][querySet[q]->n2->inGroup]; */
-        /* score[k][q] += (float)(nk + 1) / (float)(n + K); */
-        /*   } */
-        /* } */
+        for (k=1; k<mark+1; k++) {
+            j = 0;
+            for (Queries::iterator it = queries.begin(); it != queries.end(); ++it) {
+                nk = gglinks[(*it->first).getGroup()][(*it->second).getGroup()][k];
+                n = gglinks[(*it->first).getGroup()][(*it->second).getGroup()][0];
+                scores[k-1] += (float)(nk + 1) / (float)(n + mark);
+                ++j;
+            }
+        }
 	}
+
+    for (k=0; k<mark; k++){
+        scores[k] /= (double)STEPS;
+    }
+
+    j = 0;
+    printf("RESULTS:\n");
+    for (Queries::iterator it = queries.begin(); it != queries.end(); ++it) {
+        fprintf(stdout, "%d %d \n", (*it->first).getId(),(*it->second).getId());
+        for (k=0; k<mark; k++)
+          fprintf(stdout, " %lf", scores[k]);
+        ++j;
+        fprintf(stdout, "\n");
+    }
 
     free(lnfactlist);
 	gsl_rng_free(step_randomizer);
