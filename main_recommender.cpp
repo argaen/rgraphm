@@ -14,7 +14,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 1000
+#define STEPS 10
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -56,35 +56,44 @@ double hkState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks 
 
 
 /* ##################################### */
-void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random, GGLinks *gglinks){
+void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random, GGLinks *gglinks, int nnod1, int nnod2){
 	int nweight[K+1];
 	int ngrouplinks;
-	int group;
+	int group, i = 0;
+    Groups::iterator g1, g2;
+    GroupNodes::iterator it1, it2;
+    Links::iterator nit;
+    Hash_Map::iterator itn;
 
-	for (int i = 1; i<(*d1).size()+1; ++i){
+    i = 0;
+    for (itn = d1->begin(); itn != d1->end(); itn++){
 		(random) ? (group = (floor(gsl_rng_uniform(rgen) * (double)(*d1).size())) + 1) : group=i;
-		(*d1)[i].setGroup(group);
+		itn->second.setGroup(group);
 		((*groups1)[group]) = Group(group, K);
-		(*groups1)[group].members[i]=&((*d1)[i]);
+		(*groups1)[group].members[itn->second.getId()]=&(itn->second);
+        i++;
 	}
 	
-	for (int i = 1; i<(*d2).size()+1; ++i){
+    i = 0;
+    for (itn = d2->begin(); itn != d2->end(); itn++){
 		(random) ? (group = (floor(gsl_rng_uniform(rgen) * (double)(*d2).size())) + 1) : group=i;
-		(*d2)[i].setGroup(group);
+		itn->second.setGroup(group);
 		((*groups2)[group]) = Group(group, K);
-		(*groups2)[group].members[i]=&((*d2)[i]);
+		(*groups2)[group].members[itn->second.getId()]=&(itn->second);
+        i++;
 	}
 
-	for (Groups::iterator g1 = groups1->begin(); g1 != groups1->end(); ++g1){
-        for (Groups::iterator g2 = groups2->begin(); g2 != groups2->end(); ++g2){
-        memset(nweight, 0, sizeof(int)*(K+1));
-        ngrouplinks = 0;
 
-		//Groups 1 info filling
+	for (g1 = groups1->begin(); g1 != groups1->end(); g1++){
+        for (g2 = groups2->begin(); g2 != groups2->end(); g2++){
+            memset(nweight, 0, sizeof(int)*(K+1));
+            ngrouplinks = 0;
 
-			for(GroupNodes::iterator it1 = g1->second.members.begin(); it1 != g1->second.members.end(); ++it1)
-		        for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit){
-		            for(GroupNodes::iterator it2 = g2->second.members.begin(); it2 != g2->second.members.end(); ++it2)
+            //Groups 1 info filling
+
+			for (it1 = g1->second.members.begin(); it1 != g1->second.members.end(); it1++)
+		        for (nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); nit++){
+		            for (it2 = g2->second.members.begin(); it2 != g2->second.members.end(); it2++)
 		                if (nit->second.getId() == it2->second->getId()){
         		            ++ngrouplinks;
                             nweight[nit->second.getWeight()]++;
@@ -92,8 +101,9 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
         		}
 
             (*gglinks)[g1->second.getId()][g2->second.getId()][0] = ngrouplinks;
-		    for(int i=1; i<K+1; ++i)
+		    for(i=1; i<K+1; ++i){
                 (*gglinks)[g1->second.getId()][g2->second.getId()][i] = nweight[i];
+            }
 		}
 	}
 }
@@ -110,7 +120,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
     Hash_Map *d_move, *d_nomove;
     int bnnod = (nnod1>nnod2) ? nnod1+1 : nnod2+1;
 
-	bool visitedgroup[bnnod]; 
+	bool visitedgroup[1000]; 
     for (int i=0; i < bnnod; i++)
         visitedgroup[i]=false;
 	Group *src_g, *dest_g;
@@ -142,6 +152,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 
         for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
             id = (*d_nomove)[it->second.getId()].getGroup();
+            printf("%d\n",it->second.getId());
             if (!visitedgroup[id]){
                 if (set_ind){
                     dH -= logFact((*gglinks)[src_g->getId()][id][0] + K - 1, logsize, lnfactlist);
@@ -280,6 +291,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 
         for (step=0; step<=x2; step++){
             mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, 1);
+            printf("LOL\n");
 
             if (step == x1){
                 y11 = mutualInfo(g1, &g1t, nnod1, nnod2);
@@ -335,7 +347,6 @@ int main(int argc, char **argv){
     double *lnfactlist;
     Queries queries;
 	Hash_Map d1, d2;
-	Hash_Map d1c, d2c;
 	Groups groups2, groups1;
 	gsl_rng *groups_randomizer, *step_randomizer;
 	char* tFileName;
@@ -370,22 +381,25 @@ int main(int argc, char **argv){
     lnfactlist = genLogFactList(logsize);
 
 
-	d1c = d1;
-	d2c = d2;	
     nnod1 = d1.size();
     nnod2 = d2.size();
     nqueries = queries.size();
 
     double *scores = (double*) calloc(mark, sizeof(double));
 
-    GGLinks gglinks(boost::extents[nnod1+2][nnod2+2][mark+1]);
+    GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
 
-	createRandomGroups(&d1c, &d2c, &groups1, &groups2, groups_randomizer, mark, false, &gglinks);
+	createRandomGroups(&d1, &d2, &groups1, &groups2, groups_randomizer, mark, false, &gglinks, nnod1, nnod2);
+        printf("############GROUPS1################\n");
+        printGroups(groups1, mark);
+        printf("############GROUPS2################\n");
+        printGroups(groups2, mark);
+        printf("###################################\n");
 
 	std::ifstream qFile(qFileName);
 	if (qFile.is_open()){
 		while (qFile >> id1 >> id2){
-            queries.insert(Queries::value_type(&(d1c[id1]), &(d2c[id2])));
+            queries.insert(Queries::value_type(&(d1[id1]), &(d2[id2])));
 		}
 		qFile.close();
 	}else
@@ -394,24 +408,19 @@ int main(int argc, char **argv){
 	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); //Initialize H with initial system energy
 	std::cout << "Initial H: "<< H <<"\n";
 
-    decorStep = getDecorrelationKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks);
+    decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks);
 
-    thermalizeMCKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
+    thermalizeMCKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
 
 
     /* printf("DECORRELATION: %d\n", decorStep); */
 
     double TH;
 	for(i=0; i<STEPS; i++){
-		mcStepKState(&groups1, &groups2, &d1c, &d2c, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
+		mcStepKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
         TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
         std::cout << std::setprecision(20) << H << "    " << TH << "\n";
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
-        /* printf("############GROUPS1################\n"); */
-        /* printGroups(groups1, mark); */
-        /* printf("############GROUPS2################\n"); */
-        /* printGroups(groups2, mark); */
-        /* printf("###################################\n"); */
         for (k=1; k<mark+1; k++) {
             j = 0;
             for (Queries::iterator it = queries.begin(); it != queries.end(); ++it) {
