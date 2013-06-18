@@ -4,6 +4,7 @@
 #include <gsl/gsl_rng.h>
 #include <boost/unordered_map.hpp>
 #include <boost/multi_array.hpp>
+#include <boost/numeric/ublas/vector.hpp>
 #include <vector>
 #include <iomanip>
 #include <sys/time.h>
@@ -14,13 +15,14 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 1000000
+#define STEPS 100000000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
 typedef boost::unordered_map<Node*, Node*> Queries;
 typedef boost::multi_array<int, 3> GGLinks;
+typedef boost::numeric::ublas::vector<int> IVector;
 
 
 /* ##################################### */
@@ -111,7 +113,7 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 /* ##################################### */
 
 int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks, int decorStep){
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector keys1, IVector keys2){
 
 
     /* struct timeval stop, start; */
@@ -129,19 +131,20 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	Node *n;
 	double dH = 0.0;
     double set_ratio = (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2);
+    IVector *keys;
 
 
     /* for (int move=0; move<(nnod1+nnod2)*decorStep; move++) { */
         if (gsl_rng_uniform(stepgen) < set_ratio){
-            g = g1;d_move = d1;d_nomove = d2;set_ind = true;
+            g = g1;d_move = d1;d_nomove = d2;set_ind = true;keys = &keys1;
         }else{
-            g = g2;d_move = d2;d_nomove = d1;set_ind = false;
+            g = g2;d_move = d2;d_nomove = d1;set_ind = false;keys = &keys2;
         }
         set_size_move = d_move->size();
 
 
-        dice = gsl_rng_uniform(stepgen) * set_size_move + 1;
-        n = &(d_move->at(dice));
+        dice = gsl_rng_uniform(stepgen) * set_size_move;
+        n = &(d_move->at((*keys)[dice]));
         oldgrp = n->getGroup();
         newgrp = gsl_rng_uniform(groupgen) * set_size_move;
         while ( newgrp == oldgrp ) 
@@ -232,7 +235,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 }
 
 void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, int decorStep){
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, int decorStep, IVector keys1, IVector keys2){
 
     double HMean0=1.e10, HStd0=1.e-10, HMean1, HStd1, *Hvalues;
     int nrep=20;
@@ -242,7 +245,7 @@ void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_
 
     do {
         for (int i=0; i<nrep; i++){
-            mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, decorStep);
+            mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, decorStep, keys1, keys2);
             Hvalues[i] = *H;
         }
 
@@ -265,7 +268,7 @@ void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_
 }
 
 int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups){
+                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, IVector keys1, IVector keys2){
 
     int nrep = 10, step, norm = 0;
     int x1, x2, i;
@@ -289,7 +292,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
         g2t = (*g2);
 
         for (step=0; step<=x2; step++){
-            mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, 1);
+            mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, 1, keys1, keys2);
 
             if (step == x1){
                 y11 = mutualInfo(g1, &g1t, nnod1, nnod2);
@@ -383,6 +386,18 @@ int main(int argc, char **argv){
     nnod2 = d2.size();
     nqueries = queries.size();
 
+    IVector keys1(nnod1), keys2(nnod2);
+    i = 0;
+    for(Hash_Map::iterator it = d1.begin(); it != d1.end(); ++it) {
+        keys1[i] = it->first;
+        ++i;
+    }
+    i = 0;
+    for(Hash_Map::iterator it = d2.begin(); it != d2.end(); ++it) {
+        keys2[i] = it->first;
+        ++i;
+    }
+
     double *scores = (double*) calloc(mark, sizeof(double));
 
     GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
@@ -406,16 +421,16 @@ int main(int argc, char **argv){
 	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); //Initialize H with initial system energy
 	std::cout << "Initial H: "<< H <<"\n";
 
-    decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks);
+    decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, keys1, keys2);
 
-    thermalizeMCKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
+    thermalizeMCKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, keys1, keys2);
 
 
     /* printf("DECORRELATION: %d\n", decorStep); */
 
     double TH;
 	for(i=0; i<STEPS; i++){
-		mcStepKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
+		mcStepKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, keys1, keys2);
         /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); */
         /* std::cout << std::setprecision(20) << H << "    " << TH << "\n"; */
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
