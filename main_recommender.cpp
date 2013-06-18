@@ -14,7 +14,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 10
+#define STEPS 1000000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -143,16 +143,15 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
         dice = gsl_rng_uniform(stepgen) * set_size_move + 1;
         n = &(d_move->at(dice));
         oldgrp = n->getGroup();
-        newgrp = gsl_rng_uniform(groupgen) * set_size_move + 1;
+        newgrp = gsl_rng_uniform(groupgen) * set_size_move;
         while ( newgrp == oldgrp ) 
-            newgrp = gsl_rng_uniform(groupgen) * set_size_move + 1;
+            newgrp = gsl_rng_uniform(groupgen) * set_size_move;
 
         src_g = &(*g)[oldgrp];
         dest_g = &(*g)[newgrp];
 
         for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
             id = (*d_nomove)[it->second.getId()].getGroup();
-            printf("%d\n",it->second.getId());
             if (!visitedgroup[id]){
                 if (set_ind){
                     dH -= logFact((*gglinks)[src_g->getId()][id][0] + K - 1, logsize, lnfactlist);
@@ -291,7 +290,6 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 
         for (step=0; step<=x2; step++){
             mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, 1);
-            printf("LOL\n");
 
             if (step == x1){
                 y11 = mutualInfo(g1, &g1t, nnod1, nnod2);
@@ -418,8 +416,8 @@ int main(int argc, char **argv){
     double TH;
 	for(i=0; i<STEPS; i++){
 		mcStepKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep);
-        TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks);
-        std::cout << std::setprecision(20) << H << "    " << TH << "\n";
+        /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks); */
+        /* std::cout << std::setprecision(20) << H << "    " << TH << "\n"; */
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
         for (k=1; k<mark+1; k++) {
             j = 0;
