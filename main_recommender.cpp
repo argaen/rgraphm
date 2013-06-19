@@ -15,7 +15,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 1000000
+#define STEPS 1000000000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -112,19 +112,16 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 
 /* ##################################### */
 
-int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector *keys1, IVector *keys2){
+int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector *keys1, IVector *keys2){
 
 
-    struct timeval stop, start;
-    gettimeofday(&start, NULL);
+    /* struct timeval stop, start; */
+    /* gettimeofday(&start, NULL); */
     Groups *g;
     Hash_Map *d_move, *d_nomove;
     int bnnod = (nnod1>nnod2) ? nnod1+1 : nnod2+1;
 
-	bool visitedgroup[1000]; 
-    for (int i=0; i < bnnod; i++)
-        visitedgroup[i]=false;
+	bool visitedgroup[bnnod]; 
 	Group *src_g, *dest_g;
 	int newgrp, oldgrp, dice, set_size_move, id;
     bool set_ind;
@@ -134,7 +131,10 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
     IVector *keys;
 
 
-    /* for (int move=0; move<(nnod1+nnod2)*decorStep; move++) { */
+    for (int i=0; i < bnnod; i++)
+        visitedgroup[i]=false;
+
+    for (int move=0; move<(nnod1+nnod2)*decorStep; move++) {
         if (gsl_rng_uniform(stepgen) < set_ratio){
             g = g1;d_move = d1;d_nomove = d2;set_ind = true;keys = keys1;
         }else{
@@ -226,16 +226,15 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
                 src_g->addNodeS2(n, d_nomove, gglinks);
             }
         }
-        gettimeofday(&stop, NULL);
-        printf("Time %lu\n", stop.tv_usec - start.tv_usec);
-    /* } //End of MC step */
+        /* gettimeofday(&stop, NULL); */
+        /* printf("Time %lu\n", stop.tv_usec - start.tv_usec); */
+    } //End of MC step
 
 
 	return 0;
 }
 
-void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, int decorStep, IVector *keys1, IVector *keys2){
+void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, int decorStep, IVector *keys1, IVector *keys2){
 
     double HMean0=1.e10, HStd0=1.e-10, HMean1, HStd1, *Hvalues;
     int nrep=20;
@@ -267,8 +266,7 @@ void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_
     return;
 }
 
-int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, 
-                double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, IVector *keys1, IVector *keys2){
+int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, IVector *keys1, IVector *keys2){
 
     int nrep = 10, step, norm = 0;
     int x1, x2, i;
@@ -285,13 +283,13 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
         x2 = 10;
     x1 = x2 / 4;
 
-    for (i=0; i<nrep; i++){
+    for (i=0; i<nrep; i++) {
 
         printf("Estimating decorrelation time %d/%d\n", i, nrep);
         g1t = (*g1);
         g2t = (*g2);
 
-        for (step=0; step<=x2; step++){
+        for (step=0; step<=x2; step++) {
             mcStepKState(g1, g2, d1, d2, stepgen, groupgen, H, K, lnfactlist, logsize, nnod1, nnod2, gglinksGroups, 1, keys1, keys2);
 
             if (step == x1){
