@@ -30,11 +30,13 @@ void Group::setId ( int id ) {
 
 int Group::addNodeS1 ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
+    int gid;
 	n->setGroup(Group::id);
 	Group::members[n->getId()] = n;
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-        ++(*gglinks)[Group::id][d->at(it->second.getId()).getGroup()][0];
-        ++(*gglinks)[Group::id][d->at(it->second.getId()).getGroup()][it->second.getWeight()];
+        gid = d->at(it->second.getId()).getGroup();
+        ++(*gglinks)[Group::id][gid][0];
+        ++(*gglinks)[Group::id][gid][it->second.getWeight()];
 	}
  	
 	return 0;
@@ -42,11 +44,13 @@ int Group::addNodeS1 ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
 int Group::addNodeS2 ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
+    int gid;
 	n->setGroup(Group::id);
 	Group::members[n->getId()] = n;
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-        ++(*gglinks)[d->at(it->second.getId()).getGroup()][Group::id][0];
-        ++(*gglinks)[d->at(it->second.getId()).getGroup()][Group::id][it->second.getWeight()];
+        gid = d->at(it->second.getId()).getGroup();
+        ++(*gglinks)[gid][Group::id][0];
+        ++(*gglinks)[gid][Group::id][it->second.getWeight()];
 	}
 	return 0;
 }
@@ -54,20 +58,24 @@ int Group::addNodeS2 ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
 int Group::removeNodeS1 ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
+    int gid;
 	Group::members.erase(n->getId());
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-        --(*gglinks)[Group::id][d->at(it->second.getId()).getGroup()][it->second.getWeight()];
-        --(*gglinks)[Group::id][d->at(it->second.getId()).getGroup()][0];
+        gid = d->at(it->second.getId()).getGroup();
+        --(*gglinks)[Group::id][gid][it->second.getWeight()];
+        --(*gglinks)[Group::id][gid][0];
 	}
 	return 0;
 }
 
 int Group::removeNodeS2 ( Node *n, Hash_Map *d, GGLinks *gglinks ) {
 
+    int gid;
 	Group::members.erase(n->getId());
 	for(Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it){
-        --(*gglinks)[d->at(it->second.getId()).getGroup()][Group::id][it->second.getWeight()];
-        --(*gglinks)[d->at(it->second.getId()).getGroup()][Group::id][0];
+        gid = d->at(it->second.getId()).getGroup();
+        --(*gglinks)[gid][Group::id][it->second.getWeight()];
+        --(*gglinks)[gid][Group::id][0];
 	}
 	return 0;
 }

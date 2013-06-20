@@ -15,7 +15,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 1000000000
+#define STEPS 10000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -126,7 +126,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
 	int newgrp, oldgrp, dice, set_size_move, id;
     bool set_ind;
 	Node *n;
-	double dH = 0.0;
+	double dH;
     double set_ratio = (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2);
     IVector *keys;
 
@@ -135,6 +135,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
         visitedgroup[i]=false;
 
     for (int move=0; move<(nnod1+nnod2)*decorStep; move++) {
+        dH = 0.0;
         if (gsl_rng_uniform(stepgen) < set_ratio){
             g = g1;d_move = d1;d_nomove = d2;set_ind = true;keys = keys1;
         }else{
@@ -157,20 +158,20 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
             id = (*d_nomove)[it->second.getId()].getGroup();
             if (!visitedgroup[id]){
                 if (set_ind){
-                    dH -= logFact((*gglinks)[src_g->getId()][id][0] + K - 1, logsize, lnfactlist);
-                    dH -= logFact((*gglinks)[dest_g->getId()][id][0] + K - 1, logsize, lnfactlist);
+                    dH -= lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
+                    dH -= lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
                 }else{
-                    dH -= logFact((*gglinks)[id][src_g->getId()][0] + K - 1, logsize, lnfactlist);
-                    dH -= logFact((*gglinks)[id][dest_g->getId()][0] + K - 1, logsize, lnfactlist);
+                    dH -= lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
+                    dH -= lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
                 }
 
                 for (int i = 1; i<K+1; ++i){
                     if (set_ind){
-                        dH -= -logFact((*gglinks)[src_g->getId()][id][i], logsize, lnfactlist);
-                        dH -= -logFact((*gglinks)[dest_g->getId()][id][i], logsize, lnfactlist);
+                        dH -= -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
+                        dH -= -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
                     }else{
-                        dH -= -logFact((*gglinks)[id][src_g->getId()][i], logsize, lnfactlist);
-                        dH -= -logFact((*gglinks)[id][dest_g->getId()][i], logsize, lnfactlist);
+                        dH -= -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
+                        dH -= -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
                     }
                 }
                 visitedgroup[id] = true;
@@ -178,7 +179,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
         }
 
         if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
-            dH += logFact(set_size_move - g1->size(), logsize, lnfactlist);
+            dH += lnfactlist[set_size_move - g1->size()];
 
         if (set_ind){
             src_g->removeNodeS1(n, d_nomove, gglinks);
@@ -192,20 +193,20 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
             id = (*d_nomove)[it->second.getId()].getGroup();
             if (visitedgroup[id]){
                 if (set_ind){
-                    dH += logFact((*gglinks)[src_g->getId()][id][0] + K - 1, logsize, lnfactlist);
-                    dH += logFact((*gglinks)[dest_g->getId()][id][0] + K - 1, logsize, lnfactlist);
+                    dH += lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
+                    dH += lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
                 }else{
-                    dH += logFact((*gglinks)[id][src_g->getId()][0] + K - 1, logsize, lnfactlist);
-                    dH += logFact((*gglinks)[id][dest_g->getId()][0] + K - 1, logsize, lnfactlist);
+                    dH += lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
+                    dH += lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
                 }
 
                 for (int i = 1; i<K+1; ++i){
                     if (set_ind){
-                        dH += -logFact((*gglinks)[src_g->getId()][id][i], logsize, lnfactlist);
-                        dH += -logFact((*gglinks)[dest_g->getId()][id][i], logsize, lnfactlist);
+                        dH += -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
+                        dH += -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
                     }else{
-                        dH += -logFact((*gglinks)[id][src_g->getId()][i], logsize, lnfactlist);
-                        dH += -logFact((*gglinks)[id][dest_g->getId()][i], logsize, lnfactlist);
+                        dH += -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
+                        dH += -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
                     }
                 }
                 visitedgroup[id] = false;
@@ -213,8 +214,9 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
         }	
 
         if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
-            dH -= logFact(set_size_move - g1->size(), logsize, lnfactlist);
+            dH -= lnfactlist[set_size_move - g1->size()];
 
+        
         if ( dH <= 0.0 || gsl_rng_uniform(stepgen) < exp(-dH)){
             *H += dH;
         }else{
@@ -226,6 +228,9 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
                 src_g->addNodeS2(n, d_nomove, gglinks);
             }
         }
+        double TH;
+        /* TH = hkState(K, g1, g2, nnod1, nnod2, gglinks); */
+        /* std::cout << std::setprecision(20) << *H << "    " << TH << "\n"; */
         /* gettimeofday(&stop, NULL); */
         /* printf("Time %lu\n", stop.tv_usec - start.tv_usec); */
     } //End of MC step
@@ -433,12 +438,10 @@ int main(int argc, char **argv){
         /* std::cout << std::setprecision(20) << H << "    " << TH << "\n"; */
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
         for (k=1; k<mark+1; k++) {
-            j = 0;
             for (Queries::iterator it = queries.begin(); it != queries.end(); ++it) {
                 nk = gglinks[(*it->first).getGroup()][(*it->second).getGroup()][k];
                 n = gglinks[(*it->first).getGroup()][(*it->second).getGroup()][0];
                 scores[k-1] += (float)(nk + 1) / (float)(n + mark);
-                ++j;
             }
         }
 	}
