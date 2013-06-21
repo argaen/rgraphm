@@ -15,7 +15,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 10000
+#define STEPS 10000000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -59,7 +59,7 @@ double hkState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks 
 
 /* ##################################### */
 void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, gsl_rng *rgen, int K, bool random, GGLinks *gglinks, int nnod1, int nnod2){
-	int nweight[K+1];
+	int nweight[K];
 	int ngrouplinks;
 	int group, i = 0;
     Groups::iterator g1, g2;
@@ -88,7 +88,7 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 
 	for (g1 = groups1->begin(); g1 != groups1->end(); g1++){
         for (g2 = groups2->begin(); g2 != groups2->end(); g2++){
-            memset(nweight, 0, sizeof(int)*(K+1));
+            memset(nweight, 0, sizeof(int)*K);
             ngrouplinks = 0;
 
             //Groups 1 info filling
@@ -104,7 +104,7 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 
             (*gglinks)[g1->second.getId()][g2->second.getId()][0] = ngrouplinks;
 		    for(i=1; i<K+1; ++i){
-                (*gglinks)[g1->second.getId()][g2->second.getId()][i] = nweight[i];
+                (*gglinks)[g1->second.getId()][g2->second.getId()][i] = nweight[i-1];
             }
 		}
 	}
@@ -115,12 +115,12 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *stepgen, gsl_rng *groupgen, double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector *keys1, IVector *keys2){
 
 
-    /* struct timeval stop, start; */
-    /* gettimeofday(&start, NULL); */
+    struct timeval stop, start;
     Groups *g;
     Hash_Map *d_move, *d_nomove;
     int bnnod = (nnod1>nnod2) ? nnod1+1 : nnod2+1;
 
+    int factor;
 	bool visitedgroup[bnnod]; 
 	Group *src_g, *dest_g;
 	int newgrp, oldgrp, dice, set_size_move, id;
@@ -134,7 +134,9 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *st
     for (int i=0; i < bnnod; i++)
         visitedgroup[i]=false;
 
-    for (int move=0; move<(nnod1+nnod2)*decorStep; move++) {
+    factor = (nnod1+nnod2)*decorStep;
+    for (int move=0; move<factor; move++) {
+        /* gettimeofday(&start, NULL); */
         dH = 0.0;
         if (gsl_rng_uniform(stepgen) < set_ratio){
             g = g1;d_move = d1;d_nomove = d2;set_ind = true;keys = keys1;
@@ -361,8 +363,6 @@ int main(int argc, char **argv){
 
 	parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &groupseed, &mark);
 
-    std::cout << stepseed << " " << tFileName << " " << qFileName << " " << groupseed << " " << mark << "\n";
-
     
 	step_randomizer = gsl_rng_alloc(gsl_rng_mt19937);
 	groups_randomizer = gsl_rng_alloc(gsl_rng_mt19937);
@@ -427,7 +427,6 @@ int main(int argc, char **argv){
     decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2);
 
     thermalizeMCKState(&groups1, &groups2, &d1, &d2, step_randomizer, groups_randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2);
-
 
     /* printf("DECORRELATION: %d\n", decorStep); */
 
