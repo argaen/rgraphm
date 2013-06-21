@@ -15,7 +15,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 10000000
+#define STEPS 1000000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
