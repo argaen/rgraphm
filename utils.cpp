@@ -1,9 +1,9 @@
 #include "utils.h"
 
-void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* groupseed, int* mark) {
-	if (argc != 11) {
+void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* mark) {
+	if (argc != 9) {
 
-		fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s stepseed -g groupsseed -m mark \n");
+		fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s randomseed -m mark \n");
         exit(1);
 	}
 
@@ -16,9 +16,6 @@ void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* ste
 			case 'q':
     	        *qFile = optarg;
         	    break;
-			case 'g':
-            	*groupseed = atoi(optarg);
-             	break;
 			case 's':
 				*stepseed = atoi(optarg);
 				break;
@@ -37,7 +34,7 @@ void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* ste
 
 			default:
 
-				fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s seed -m mark \n");
+				fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s randomseed -m mark \n");
 				exit(1);
 		}
 }
@@ -177,11 +174,11 @@ double logFact(int key, int size, double* logFactList){
 
 void printGroups(Groups g, int mark){
     for (Groups::iterator it = (g).begin(); it != (g).end(); ++it){
-        std::cout << "[Group:" << it->second.getId();
+        /* std::cout << "[Group:" << it->second.getId(); */
         for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
-            std::cout << ", Node:" << it1->second->getId() << " Links: ";
-                for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit)
-                    std::cout << nit->second.getId() << ", ";
+            std::cout << it1->second->getId() << " " ;
+                /* for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit) */
+                /*     std::cout << nit->second.getId() << ", "; */
 
         }
         std::cout << "\n";

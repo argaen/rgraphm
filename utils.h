@@ -17,7 +17,7 @@ struct pair
   double y1;
 };
 
-void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* groupseed, int* mark);
+void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* mark);
 void printGroups(Groups g, int mark);
 int ExponentialRootF(const gsl_vector *params, void *points, gsl_vector *f);
 double getDecay(int nnod, double x1, double x2, double y1, double y2);
