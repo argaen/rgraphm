@@ -15,7 +15,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 100000
+#define STEPS 1000000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -303,7 +303,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 
     for (i=0; i<nrep; i++) {
 
-        printf("Estimating decorrelation time %d/%d\n", i, nrep);
+        printf("Estimating decorrelation time %d/%d\n", i+1, nrep);
         g1t = (*g1);
         g2t = (*g2);
 
@@ -429,7 +429,7 @@ int main(int argc, char **argv){
 		std::cout << "Couldn't open file " << tFileName << "\n";
 
 	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
-	std::cout << "Initial H: "<< H <<"\n";
+    printf("Initial H: %f\n", H);
 
     decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
 
