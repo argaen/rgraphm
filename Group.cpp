@@ -1,5 +1,9 @@
 #include "Group.h"
 #include <string.h>
+#include <iomanip>
+#include <iostream>
+#include <fstream>
+#include <cstdlib>
 
 
 Group::Group( int id ) {

@@ -7,6 +7,7 @@
 #include <boost/numeric/ublas/vector.hpp>
 #include <vector>
 #include <iomanip>
+#include <string>
 #include <sys/time.h>
 
 
@@ -15,12 +16,13 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 1000000
+#define STEPS 10000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
 typedef boost::unordered_map<Node*, Node*> Queries;
+typedef boost::unordered_map<std::string, int> IdMap;
 typedef boost::multi_array<int, 3> GGLinks;
 typedef boost::numeric::ublas::vector<int> IVector;
 
@@ -359,17 +361,19 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 int main(int argc, char **argv){
 
     int decorStep;
-	int id1, id2, weight, logsize=LOGSIZE;
+	int weight, logsize=LOGSIZE;
+    std::string id1, id2;
 	double H;
     double *lnfactlist;
     Queries queries;
 	Hash_Map d1, d2;
+	IdMap rd1, rd2;
 	Groups groups2, groups1;
 	gsl_rng *randomizer;
 	char* tFileName;
 	char* qFileName;
 	int stepseed;
-	int mark, k, i, j, q, n, nk;
+	int mark, k, i, j, q, n, nk, tmpid1 = 0, tmpid2 = 0, tid1, tid2;
     int nnod1, nnod2, nqueries = 0;
     int ng1 = 0, ng2 = 0;
 
@@ -382,18 +386,26 @@ int main(int argc, char **argv){
 	std::ifstream tFile(tFileName);
 	if (tFile.is_open()){
 		while (tFile >> id1 >> id2 >> weight){
-			d1.insert(Hash_Map::value_type(id1,Node(id1)));
-			d1[id1].neighbours.insert(Links::value_type(id2,Link(id2, weight)));
-			d2.insert(Hash_Map::value_type(id2,Node(id2)));
-			d2[id2].neighbours.insert(Links::value_type(id1,Link(id1, weight)));
+            if (rd1.find(id1) == rd1.end()){
+                rd1.insert(IdMap::value_type(id1,tmpid1));
+                tmpid1++;
+            }
+            if (rd2.find(id2) == rd2.end()){
+                rd2.insert(IdMap::value_type(id2,tmpid2));
+                tmpid2++;
+            }
+            tid1 = rd1[id1]; 
+            tid2 = rd2[id2];
+            d1.insert(Hash_Map::value_type(tid1,Node(id1, tid1)));
+            d1[tid1].neighbours.insert(Links::value_type(tid2,Link(tid2, weight)));
+			d2.insert(Hash_Map::value_type(tid2,Node(id2, tid2)));
+			d2[tid2].neighbours.insert(Links::value_type(tid1,Link(tid1, weight)));
 		}
 		tFile.close();
 	}else
 		std::cout << "Couldn't open file " << tFileName << "\n";
 
-    
     lnfactlist = genLogFactList(logsize);
-
 
     nnod1 = d1.size();
     nnod2 = d2.size();
@@ -415,14 +427,14 @@ int main(int argc, char **argv){
 
     double *scores = (double*) calloc(mark, sizeof(double));
 
-    GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
+    GGLinks gglinks(boost::extents[nnod1/2+1][nnod2/2+1][mark+1]);
 
 	createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
 
 	std::ifstream qFile(qFileName);
 	if (qFile.is_open()){
 		while (qFile >> id1 >> id2){
-            queries.insert(Queries::value_type(&(d1[id1]), &(d2[id2])));
+            queries.insert(Queries::value_type(&(d1[rd1[id1]]), &(d2[rd2[id2]])));
 		}
 		qFile.close();
 	}else
@@ -462,7 +474,7 @@ int main(int argc, char **argv){
     j = 0;
     printf("RESULTS:\n");
     for (Queries::iterator it = queries.begin(); it != queries.end(); ++it) {
-        fprintf(stdout, "%d %d \n", (*it->first).getId(),(*it->second).getId());
+        std::cout << (*it->first).getRealId() <<' '<< (*it->second).getRealId() << '\n';
         for (k=0; k<mark; k++)
           fprintf(stdout, " %lf", scores[k]);
         ++j;
