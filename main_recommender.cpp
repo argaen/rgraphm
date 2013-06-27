@@ -427,7 +427,7 @@ int main(int argc, char **argv){
 
     double *scores = (double*) calloc(mark, sizeof(double));
 
-    GGLinks gglinks(boost::extents[nnod1/2+1][nnod2/2+1][mark+1]);
+    GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
 
 	createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
 
