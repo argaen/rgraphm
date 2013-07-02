@@ -16,7 +16,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 10
+#define STEPS 100000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -138,7 +138,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
         visitedgroup[i]=false;
 
     factor = (nnod1+nnod2)*decorStep;
-    /* for (int move=0; move<factor; move++) { */
+    for (int move=0; move<factor; move++) {
         /* gettimeofday(&start, NULL); */
         dH = 0.0;
         if (gsl_rng_uniform(rgen) < set_ratio){
@@ -240,7 +240,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
         }
         /* gettimeofday(&stop, NULL); */
         /* printf("Time %lu\n", stop.tv_usec - start.tv_usec); */
-    /* } //End of MC step */
+    } //End of MC step
     /* double TH; */
     /* TH = hkState(K, g1, g2, nnod1, nnod2, gglinks); */
     /* std::cout << std::setprecision(20) << *H << "    " << TH << "\n"; */
@@ -385,7 +385,7 @@ int main(int argc, char **argv){
 	randomizer = gsl_rng_alloc(gsl_rng_mt19937);
 	gsl_rng_set(randomizer, stepseed);
 
-    start = time(NULL);
+    /* start = time(NULL); */
 	std::ifstream tFile(tFileName);
 	if (tFile.is_open()){
 		while (tFile >> id1 >> id2 >> weight){
@@ -408,6 +408,15 @@ int main(int argc, char **argv){
 	}else
 		std::cout << "Couldn't open file " << tFileName << "\n";
 
+	std::ifstream qFile(qFileName);
+	if (qFile.is_open()){
+		while (qFile >> id1 >> id2){
+            queries.insert(Queries::value_type(&(d1[rd1[id1]]), &(d2[rd2[id2]])));
+		}
+		qFile.close();
+	}else
+		std::cout << "Couldn't open file " << tFileName << "\n";
+
     lnfactlist = genLogFactList(logsize);
 
     nnod1 = d1.size();
@@ -416,9 +425,9 @@ int main(int argc, char **argv){
     ng2 = d2.size();
     nqueries = queries.size();
 
-    end = time(NULL);
-    printf("Time Read Files: %lu\n", end-start);
-    start = time(NULL);
+    /* end = time(NULL); */
+    /* printf("Time Read Files: %lu\n", end-start); */
+    /* start = time(NULL); */
     IVector keys1(nnod1), keys2(nnod2);
     i = 0;
     for(Hash_Map::iterator it = d1.begin(); it != d1.end(); ++it) {
@@ -435,48 +444,36 @@ int main(int argc, char **argv){
 
     GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
 
-    end = time(NULL);
-    printf("Time Vector Keys and GGLink memory alloc: %lu\n", end-start);
-    start = time(NULL);
+    /* end = time(NULL); */
+    /* printf("Time Vector Keys and GGLink memory alloc: %lu\n", end-start); */
+    /* start = time(NULL); */
 	createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
 
-	std::ifstream qFile(qFileName);
-	if (qFile.is_open()){
-		while (qFile >> id1 >> id2){
-            queries.insert(Queries::value_type(&(d1[rd1[id1]]), &(d2[rd2[id2]])));
-		}
-		qFile.close();
-	}else
-		std::cout << "Couldn't open file " << tFileName << "\n";
 
-    end = time(NULL);
-    printf("Time group creation: %lu\n", end-start);
-    start = time(NULL);
+    /* end = time(NULL); */
+    /* printf("Time group creation: %lu\n", end-start); */
+    /* start = time(NULL); */
 	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
     printf("Initial H: %f\n", H);
-    end = time(NULL);
-    printf("Time Initial State: %lu\n", end-start);
+    /* end = time(NULL); */
+    /* printf("Time Initial State: %lu\n", end-start); */
 
-    /* decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2); */
-    decorStep = 1;
+    decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
 
-    /* thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2); */
+    thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
 
     /* double TH; */
+    /* start = time(NULL); */
 	for(i=0; i<STEPS; i++){
-        start = time(NULL);
 		mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
-        TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
-        std::cout << std::setprecision(20) << H << "    " << TH << "\n\n";
+        /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2); */
+        /* std::cout << std::setprecision(20) << H << "    " << TH << "\n\n"; */
         /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
         /* printf("############GROUPS1################\n"); */
         /* printGroups(groups1, mark); */
         /* printf("############GROUPS2################\n"); */
         /* printGroups(groups2, mark); */
         /* printf("###################################\n"); */
-        end = time(NULL);
-        printf("Time MCKStep: %lu\n", end-start);
-        start = time(NULL);
         for (k=1; k<mark+1; k++) {
             for (Queries::iterator it = queries.begin(); it != queries.end(); ++it) {
                 nk = gglinks[(*it->first).getGroup()][(*it->second).getGroup()][k];
@@ -484,9 +481,9 @@ int main(int argc, char **argv){
                 scores[k-1] += (float)(nk + 1) / (float)(n + mark);
             }
         }
-        end = time(NULL);
-        printf("Time Queries: %lu\n", end-start);
 	}
+    /* end = time(NULL); */
+    /* printf("Time Total Iter: %lu\n", end-start); */
 
     for (k=0; k<mark; k++){
         scores[k] /= (double)STEPS;
