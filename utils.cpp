@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <iostream>
 
 void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* mark) {
 	if (argc != 9) {

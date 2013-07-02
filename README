@@ -13,9 +13,11 @@ http://etseq.urv.cat/seeslab/downloads/network-c-libraries-rgraph/
 
     * Execution
         * libgsl0dbl
+	* boost
 
     * Compilation
         * libgsl0-dev
+	* boost-devel
 
 
 

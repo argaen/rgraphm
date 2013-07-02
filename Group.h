@@ -7,7 +7,7 @@
 
 typedef boost::unordered_map<int, Node> Hash_Map;
 typedef boost::unordered_map< int , Node* > GroupNodes;
-typedef boost::multi_array<int, 3> GGLinks;
+typedef boost::multi_array<unsigned short, 3> GGLinks;
 
 class Group {
 	int id;
