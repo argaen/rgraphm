@@ -17,7 +17,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 100
+#define STEPS 10000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -276,10 +276,10 @@ void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_
 
         if (HMean0 - HStd0 / sqrt(nrep) < HMean1 + HStd1 / sqrt(nrep)) {
             equilibrated++;
-            printf("#\tequilibrated (%d/5) H=%lf\n", equilibrated, HMean1);
+            fprintf(stderr, "#\tequilibrated (%d/5) H=%lf\n", equilibrated, HMean1);
 
         } else {
-            printf("#\tnot equilibrated yet H0=%g+-%g H1=%g+-%g\n", HMean0, HStd0 / sqrt(nrep), HMean1, HStd1 / sqrt(nrep));
+            fprintf(stderr, "#\tnot equilibrated yet H0=%g+-%g H1=%g+-%g\n", HMean0, HStd0 / sqrt(nrep), HMean1, HStd1 / sqrt(nrep));
             HMean0 = HMean1;
             HStd0 = HStd1;
             equilibrated = 0;
@@ -308,7 +308,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 
     for (i=0; i<nrep; i++) {
 
-        printf("Estimating decorrelation time %d/%d\n", i+1, nrep);
+        fprintf(stderr, "Estimating decorrelation time %d/%d\n", i+1, nrep);
         g1t = (*g1);
         g2t = (*g2);
 
@@ -326,11 +326,11 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
         (nnod1>1) ? decay1[i] = 2 * getDecay(nnod1, x1, x2, y11, y21) : decay1[i] = 1.e-6;
         (nnod2>1) ? decay2[i] = 2 * getDecay(nnod2, x1, x2, y12, y22) : decay2[i] = 1.e-6;
 
-        printf("# Decorrelation times (estimate %d) = %g %g\n\n", i + 1, decay1[i], decay2[i]);
+        fprintf(stderr, "# Decorrelation times (estimate %d) = %g %g\n\n", i + 1, decay1[i], decay2[i]);
 
         if (decay1[i] < 0. || decay2[i] < 0.){
             i--;
-            printf("\t# ignoring...\n");
+            fprintf(stderr, "\t# ignoring...\n");
         }
     }
 
@@ -351,8 +351,6 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 
     for (i=0; i<nrep; i++)
        (fabs(decay[i] - meanDecay) / sigmaDecay > 2) ? result -= decay[i] : ++norm;
-
-    printf("# Decorrelation step: %d\n\n", (int)(result / norm + 0.5));
 
     return (int)(result / norm + 0.5);
 }
@@ -379,6 +377,9 @@ int main(int argc, char **argv){
 	int mark, k, i, j, n, nk, tmpid1 = 0, tmpid2 = 0, tid1, tid2;
     int nnod1, nnod2, nqueries = 0;
     int ng1 = 0, ng2 = 0;
+    time_t start;
+    time_t end;
+    /* double TH; */
     std::ofstream outfile;
 
 	parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &mark);
@@ -387,7 +388,7 @@ int main(int argc, char **argv){
 	randomizer = gsl_rng_alloc(gsl_rng_mt19937);
 	gsl_rng_set(randomizer, stepseed);
 
-    fprintf(stdout, "Reading input files and initializing data structures...\n");
+    fprintf(stderr, "Reading input files and initializing data structures...\n");
 	std::ifstream tFile(tFileName);
 	if (tFile.is_open()){
 		while (tFile >> id1 >> id2 >> weight){
@@ -463,27 +464,39 @@ int main(int argc, char **argv){
     GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
     Scores scores(boost::extents[nqueries][mark]);
 
-    fprintf(stdout, "Creating groups...\n");
+    fprintf(stderr, "Creating groups...\n\n");
 	createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
 
 
-    fprintf(stdout, "Calculating initial H...\n");
+    fprintf(stderr, "Calculating initial H...\n");
+    start = time(NULL);
 	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
-    printf("Initial H: %f\n", H);
+    end = time(NULL);
+    fprintf(stderr, "Initial H: %f | Time Spent: %lu secs\n\n", H, end-start);
 
-    /* decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2); */
+    fprintf(stderr, "Calculating decorrelation step...\n");
+    start = time(NULL);
+    decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
+    /* decorStep = 1; */
+    end = time(NULL);
+    fprintf(stderr, "Decorrelation step: %d | Time Spent: %lu secs\n\n", decorStep, end-start);
 
-    /* thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2); */
+    fprintf(stderr, "Thermalizing...\n");
+    start = time(NULL);
+    thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
+    end = time(NULL);
+    fprintf(stderr, "Time Spent: %lu secs\n\n", end-start);
 
-    decorStep = 1;
 
-    /* double TH; */
+
+    fprintf(stderr, "Starting MC Steps...\n");
+    start = time(NULL);
     int indquery;
 	for(i=0; i<STEPS; i++){
 		mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
         /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2); */
         /* std::cout << std::setprecision(20) << H << "    " << TH << "\n\n"; */
-        std::cout << std::setprecision(20) << i << " " << H << "\n";
+        /* std::cout << std::setprecision(20) << i << " " << H << "\n"; */
         /* printf("############GROUPS1################\n"); */
         /* printGroups(groups1, mark); */
         /* printf("############GROUPS2################\n"); */
@@ -504,22 +517,24 @@ int main(int argc, char **argv){
             outfile.open("scores.tmp");
             indquery = 0;
             for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
-                outfile << "# " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " # ";
+                outfile << "| " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " | ";
                 for (k=0; k<mark; k++)
                     outfile << scores[indquery][k]/(double)STEPS << " ";
                 indquery++;
-                outfile << "\n\n";
+                outfile << "\n";
             }
             outfile.close();
         }
 	}
+    end = time(NULL);
+    fprintf(stderr, "Done. Time Spent: %lu secs\n\n", end-start);
 
     for (j=0; j<nqueries; j++)
         for (k=0; k<mark; k++)
             scores[j][k] /= (double)STEPS;
 
     outfile.open("scores.tmp");
-    printf("RESULTS:\n");
+    fprintf(stdout, "RESULTS:\n");
     indquery = 0;
     for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
         outfile << "# " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " # ";
