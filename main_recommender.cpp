@@ -17,7 +17,7 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 10000
+#define STEPS 100
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -376,9 +376,10 @@ int main(int argc, char **argv){
 	char* tFileName;
 	char* qFileName;
 	int stepseed;
-	int mark, k, i, j, q, n, nk, tmpid1 = 0, tmpid2 = 0, tid1, tid2;
+	int mark, k, i, j, n, nk, tmpid1 = 0, tmpid2 = 0, tid1, tid2;
     int nnod1, nnod2, nqueries = 0;
     int ng1 = 0, ng2 = 0;
+    std::ofstream outfile;
 
 	parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &mark);
 
@@ -386,6 +387,7 @@ int main(int argc, char **argv){
 	randomizer = gsl_rng_alloc(gsl_rng_mt19937);
 	gsl_rng_set(randomizer, stepseed);
 
+    fprintf(stdout, "Reading input files and initializing data structures...\n");
 	std::ifstream tFile(tFileName);
 	if (tFile.is_open()){
 		while (tFile >> id1 >> id2 >> weight){
@@ -461,15 +463,19 @@ int main(int argc, char **argv){
     GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
     Scores scores(boost::extents[nqueries][mark]);
 
+    fprintf(stdout, "Creating groups...\n");
 	createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
 
 
+    fprintf(stdout, "Calculating initial H...\n");
 	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
     printf("Initial H: %f\n", H);
 
-    decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
+    /* decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2); */
 
-    thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
+    /* thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2); */
+
+    decorStep = 1;
 
     /* double TH; */
     int indquery;
@@ -477,7 +483,7 @@ int main(int argc, char **argv){
 		mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
         /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2); */
         /* std::cout << std::setprecision(20) << H << "    " << TH << "\n\n"; */
-        /* std::cout << std::setprecision(20) << H << "    " << "\n"; */
+        std::cout << std::setprecision(20) << i << " " << H << "\n";
         /* printf("############GROUPS1################\n"); */
         /* printGroups(groups1, mark); */
         /* printf("############GROUPS2################\n"); */
@@ -492,20 +498,39 @@ int main(int argc, char **argv){
             }
             indquery++;
         }
+
+
+        if (i % 100 == 0) { 
+            outfile.open("scores.tmp");
+            indquery = 0;
+            for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
+                outfile << "# " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " # ";
+                for (k=0; k<mark; k++)
+                    outfile << scores[indquery][k]/(double)STEPS << " ";
+                indquery++;
+                outfile << "\n\n";
+            }
+            outfile.close();
+        }
 	}
 
     for (j=0; j<nqueries; j++)
         for (k=0; k<mark; k++)
             scores[j][k] /= (double)STEPS;
 
+    outfile.open("scores.tmp");
     printf("RESULTS:\n");
     indquery = 0;
     for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
+        outfile << "# " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " # ";
         std::cout << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << '\n';
-        for (k=0; k<mark; k++)
-          fprintf(stdout, " %lf", scores[indquery][k]);
+        for (k=0; k<mark; k++){
+            outfile << scores[indquery][k] << " ";
+            std::cout << scores[indquery][k] << " ";
+        }
         indquery++;
-        fprintf(stdout, "\n");
+        outfile << "\n\n";
+        std::cout << "\n\n";
     }
 
     free(lnfactlist);
