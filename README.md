@@ -33,11 +33,6 @@ an issue in the [rgraphm repository](https://bitbucket.org/seeslab/rgraphm.git).
 
     -n: Numer of Monte Carlo steps.
 
-    -p: Number of nodes per groups associated in the initial state. They are 
-        placed together according to their similarity. 
-    
-    -o: Results file.
-
     -h: Show help.
 
 
