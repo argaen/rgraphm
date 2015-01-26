@@ -1,43 +1,60 @@
 #include "utils.h"
 #include <iostream>
 
-void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* mark) {
-	if (argc != 9) {
+void print_usage() {
 
-		fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s randomseed -m mark \n");
+    fprintf (stdout, "\nExample: main_recommender -t trainFile -q queryFile -s randomseed -m mark \n\n");
+    fprintf (stdout, " -t: Path to train file in format a b c where 'a' is the first node id, 'b' is the second node id and c is the weight of their link. Weight values must range from 0 to N.\n");
+    fprintf (stdout, " -q: Path to query file in format a b where 'a' is the first node id of the query and 'b' is the second node id of the query.\n");
+    fprintf (stdout, " -s: Seed for the random. If you use the same value and number of iterations, you will always obtain the same results.\n");
+    fprintf (stdout, " -m: Number of different ratings a user can apply. For example, if a node of the second set can be voted from 0 to 4 stars, mark would be 5.\n");
+    fprintf (stdout, " -n: Number of Monte Carlo steps.\n");
+    fprintf (stdout, " -h: Display help.\n");
+}
+
+
+void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* mark, int* iterations) {
+    if (argc < 9) {
+
+        fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s randomseed -m mark \n");
         exit(1);
-	}
+    }
 
-	int c;
-	while ((c = getopt (argc, argv, "t:q:s:g:m:")) != -1)
-    	switch (c) {
-			case 't':
-           		*inFile = optarg;
-	            break;
-			case 'q':
-    	        *qFile = optarg;
-        	    break;
-			case 's':
-				*stepseed = atoi(optarg);
-				break;
-			case 'm':
-				*mark = atoi(optarg);
-				break;
-			case '?':
-				if (optopt == 't' || optopt == 'q' || optopt == 'm' || optopt == 's' || optopt == 'g')
-					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
-				else if (isprint (optopt))
-					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-				else
-					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
+    int c;
+    while ((c = getopt (argc, argv, "t:q:s:g:m:n:h")) != -1)
+        switch (c) {
+            case 't':
+                *inFile = optarg;
+                break;
+            case 'q':
+                *qFile = optarg;
+                break;
+            case 's':
+                *stepseed = atoi(optarg);
+                break;
+            case 'm':
+                *mark = atoi(optarg);
+                break;
+            case 'n':
+                *iterations = atoi(optarg);
+                break;
+            case 'h':
+                print_usage();
+                exit(0);
+            case '?':
+                if (optopt == 't' || optopt == 'q' || optopt == 'm' || optopt == 's' || optopt == 'g' || optopt == 'n')
+                    fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+                else if (isprint (optopt))
+                    fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+                else
+                    fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
 
-				exit(1);
+                exit(1);
 
-			default:
-
-				fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s randomseed -m mark \n");
-				exit(1);
-		}
+            default:
+                print_usage();
+                exit(1);
+        }
 }
 
 int ExponentialRootF(const gsl_vector *params, void *points, gsl_vector *f) {
@@ -79,11 +96,11 @@ double getDecay(int nnod, double x1, double x2, double y1, double y2) {
     gsl_multiroot_fsolver_set (s, &f, x);
 
     do {
-      iter++;
-      status = gsl_multiroot_fsolver_iterate (s);
-      if (status)   /* check if solver is stuck */
-        break;
-      status =gsl_multiroot_test_residual(s->f, 1e-7);
+        iter++;
+        status = gsl_multiroot_fsolver_iterate (s);
+        if (status)   /* check if solver is stuck */
+            break;
+        status =gsl_multiroot_test_residual(s->f, 1e-7);
     } while (status == GSL_CONTINUE && iter < 1000);
 
     if (strcmp(gsl_strerror(status), "success") != 0)
@@ -136,7 +153,7 @@ double mutualInfo(Groups *g, Groups *gt, int nnod1, int nnod2){
             S1 = it->second.members.size();
             H1 += (double)S1 * log((double)S1 / (double)S);
         }
-            
+
     for (Groups::iterator it = (*gt).begin(); it != (*g).end(); ++it)
         if (it->second.members.size() > 0){
             S2 = it->second.members.size();
@@ -178,8 +195,8 @@ void printGroups(Groups g, int mark){
         /* std::cout << "[Group:" << it->second.getId(); */
         for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
             std::cout << it1->second->getId() << " " ;
-                /* for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit) */
-                /*     std::cout << nit->second.getId() << ", "; */
+            /* for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit) */
+            /*     std::cout << nit->second.getId() << ", "; */
 
         }
         std::cout << "\n";

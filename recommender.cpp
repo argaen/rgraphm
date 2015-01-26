@@ -17,7 +17,6 @@
 #include "Group.h"
 #include "utils.h"
 
-#define STEPS 10000
 #define LOGSIZE 5000
 
 typedef boost::unordered_map<int, double> LnFactList;
@@ -35,38 +34,38 @@ typedef std::vector< boost::tuple<Node*, Node*> > tuple_list;
 
 /* ##################################### */
 double group2GroupH(Group *g1, Group *g2, int K, GGLinks *gglinks){
-	double H = 0.0;
+    double H = 0.0;
 
-	/* H += gsl_sf_lnfact(g1->g2glinks[g2->get_id()][0] + K -1); */
-	H += gsl_sf_lnfact((*gglinks)[g1->getId()][g2->getId()][0] + K - 1);
-	for(int i=1; i<K+1; ++i){
-		/* H -= gsl_sf_lnfact(g1->g2glinks[g2->get_id()][i]); */
+    /* H += gsl_sf_lnfact(g1->g2glinks[g2->get_id()][0] + K -1); */
+    H += gsl_sf_lnfact((*gglinks)[g1->getId()][g2->getId()][0] + K - 1);
+    for(int i=1; i<K+1; ++i){
+        /* H -= gsl_sf_lnfact(g1->g2glinks[g2->get_id()][i]); */
         H -= gsl_sf_lnfact((*gglinks)[g1->getId()][g2->getId()][i]);
-	}
+    }
     return H;
 }
 
 
 /* ##################################### */
 double hkState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks *gglinks, int ng1, int ng2){
-	double H = 0.0;
+    double H = 0.0;
 
-	for (Groups::iterator it1 = g1->begin(); it1 != g1->end(); ++it1)
-		for (Groups::iterator it2 = g2->begin(); it2 != g2->end(); ++it2)
-			H += group2GroupH(&(it1->second), &(it2->second), K, gglinks);
-		
-	H -= gsl_sf_lnfact(d1_size - ng1) + gsl_sf_lnfact(d2_size - ng2);
-	
-	return H;
+    for (Groups::iterator it1 = g1->begin(); it1 != g1->end(); ++it1)
+        for (Groups::iterator it2 = g2->begin(); it2 != g2->end(); ++it2)
+            H += group2GroupH(&(it1->second), &(it2->second), K, gglinks);
+
+    H -= gsl_sf_lnfact(d1_size - ng1) + gsl_sf_lnfact(d2_size - ng2);
+
+    return H;
 
 }
 
 
 /* ##################################### */
 void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *groups2, int K, GGLinks *gglinks, int nnod1, int nnod2){
-	int nweight[K];
-	int ngrouplinks;
-	int group, i = 0;
+    int nweight[K];
+    int ngrouplinks;
+    int group, i = 0;
     Groups::iterator g1, g2;
     GroupNodes::iterator it1, it2;
     Links::iterator nit;
@@ -74,45 +73,45 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 
     i = 0;
     for (itn = d1->begin(); itn != d1->end(); itn++){
-		group = i;
-		itn->second.setGroup(group);
-		((*groups1)[group]) = Group(group, K);
-		(*groups1)[group].members[itn->second.getId()]=&(itn->second);
+        group = i;
+        itn->second.setGroup(group);
+        ((*groups1)[group]) = Group(group, K);
+        (*groups1)[group].members[itn->second.getId()]=&(itn->second);
         i++;
-	}
-	
+    }
+
     i = 0;
     for (itn = d2->begin(); itn != d2->end(); itn++){
-		group = i;
-		itn->second.setGroup(group);
-		((*groups2)[group]) = Group(group, K);
-		(*groups2)[group].members[itn->second.getId()]=&(itn->second);
+        group = i;
+        itn->second.setGroup(group);
+        ((*groups2)[group]) = Group(group, K);
+        (*groups2)[group].members[itn->second.getId()]=&(itn->second);
         i++;
-	}
+    }
 
 
-	for (g1 = groups1->begin(); g1 != groups1->end(); g1++){
+    for (g1 = groups1->begin(); g1 != groups1->end(); g1++){
         for (g2 = groups2->begin(); g2 != groups2->end(); g2++){
             memset(nweight, 0, sizeof(int)*K);
             ngrouplinks = 0;
 
             //Groups 1 info filling
 
-			for (it1 = g1->second.members.begin(); it1 != g1->second.members.end(); it1++)
-		        for (nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); nit++){
-		            for (it2 = g2->second.members.begin(); it2 != g2->second.members.end(); it2++)
-		                if (nit->second.getId() == it2->second->getId()){
-        		            ++ngrouplinks;
+            for (it1 = g1->second.members.begin(); it1 != g1->second.members.end(); it1++)
+                for (nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); nit++){
+                    for (it2 = g2->second.members.begin(); it2 != g2->second.members.end(); it2++)
+                        if (nit->second.getId() == it2->second->getId()){
+                            ++ngrouplinks;
                             nweight[nit->second.getWeight()]++;
                         }
-        		}
+                }
 
             (*gglinks)[g1->second.getId()][g2->second.getId()][0] = ngrouplinks;
-		    for(i=1; i<K+1; ++i){
+            for(i=1; i<K+1; ++i){
                 (*gglinks)[g1->second.getId()][g2->second.getId()][i] = nweight[i-1];
             }
-		}
-	}
+        }
+    }
 }
 
 /* ##################################### */
@@ -120,18 +119,17 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rgen, double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector *keys1, IVector *keys2, int *ng1, int *ng2){
 
 
-    struct timeval stop, start;
     Groups *g;
     Hash_Map *d_move, *d_nomove;
     int bnnod = (nnod1>nnod2) ? nnod1+1 : nnod2+1;
 
     int factor;
-	bool visitedgroup[bnnod]; 
-	Group *src_g, *dest_g;
-	int newgrp, oldgrp, dice, set_size_move, id;
+    bool visitedgroup[bnnod]; 
+    Group *src_g, *dest_g;
+    int newgrp, oldgrp, dice, set_size_move, id;
     bool set_ind;
-	Node *n;
-	double dH;
+    Node *n;
+    double dH;
     int *ng;
     double set_ratio = (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2);
     IVector *keys;
@@ -227,7 +225,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
         if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
             dH -= lnfactlist[set_size_move - *ng];
 
-        
+
         if ( dH <= 0.0 || gsl_rng_uniform(rgen) < exp(-dH)){
             *H += dH;
         }else{
@@ -254,7 +252,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
     /* printf("###################################\n"); */
 
 
-	return 0;
+    return 0;
 }
 
 void thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rgen, double *H, int K, double *lnfactlist, int logsize, int nnod1, int nnod2, GGLinks *gglinksGroups, int decorStep, IVector *keys1, IVector *keys2, int *ng1, int *ng2){
@@ -296,7 +294,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
     double *decay, *decay1, *decay2;
     double meanDecay, meanDecay1, meanDecay2, sigmaDecay;
     double y11 = 0.0, y12 = 0.0, y21 = 0.0, y22 = 0.0, result;
-	Groups g2t, g1t;
+    Groups g2t, g1t;
 
     decay1 = (double*) calloc(nrep, sizeof(double));
     decay2 = (double*) calloc(nrep, sizeof(double));
@@ -350,7 +348,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
     result = meanDecay*nrep;
 
     for (i=0; i<nrep; i++)
-       (fabs(decay[i] - meanDecay) / sigmaDecay > 2) ? result -= decay[i] : ++norm;
+        (fabs(decay[i] - meanDecay) / sigmaDecay > 2) ? result -= decay[i] : ++norm;
 
     return (int)(result / norm + 0.5);
 }
@@ -362,19 +360,20 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 int main(int argc, char **argv){
 
     int decorStep;
-	int weight, logsize=LOGSIZE;
+    int weight, logsize=LOGSIZE;
     std::string id1, id2;
-	double H;
+    double H;
     double *lnfactlist;
     tuple_list queries;
-	Hash_Map d1, d2;
-	IdMap rd1, rd2;
-	Groups groups2, groups1;
-	gsl_rng *randomizer;
-	char* tFileName;
-	char* qFileName;
-	int stepseed;
-	int mark, k, i, j, n, nk, tmpid1 = 0, tmpid2 = 0, tid1, tid2;
+    Hash_Map d1, d2;
+    IdMap rd1, rd2;
+    Groups groups2, groups1;
+    gsl_rng *randomizer;
+    char* tFileName;
+    char* qFileName;
+    int stepseed;
+    int iterations = 10000;
+    int mark, k, i, j, n, nk, tmpid1 = 0, tmpid2 = 0, tid1, tid2;
     int nnod1, nnod2, nqueries = 0;
     int ng1 = 0, ng2 = 0;
     time_t start;
@@ -382,16 +381,16 @@ int main(int argc, char **argv){
     /* double TH; */
     std::ofstream outfile;
 
-	parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &mark);
+    parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &mark, &iterations);
 
-    
-	randomizer = gsl_rng_alloc(gsl_rng_mt19937);
-	gsl_rng_set(randomizer, stepseed);
+
+    randomizer = gsl_rng_alloc(gsl_rng_mt19937);
+    gsl_rng_set(randomizer, stepseed);
 
     fprintf(stderr, "Reading input files and initializing data structures...\n");
-	std::ifstream tFile(tFileName);
-	if (tFile.is_open()){
-		while (tFile >> id1 >> id2 >> weight){
+    std::ifstream tFile(tFileName);
+    if (tFile.is_open()){
+        while (tFile >> id1 >> id2 >> weight){
             if (rd1.find(id1) == rd1.end()){
                 rd1.insert(IdMap::value_type(id1,tmpid1));
                 tmpid1++;
@@ -404,16 +403,16 @@ int main(int argc, char **argv){
             tid2 = rd2[id2];
             d1.insert(Hash_Map::value_type(tid1,Node(id1, tid1)));
             d1[tid1].neighbours.insert(Links::value_type(tid2,Link(tid2, weight)));
-			d2.insert(Hash_Map::value_type(tid2,Node(id2, tid2)));
-			d2[tid2].neighbours.insert(Links::value_type(tid1,Link(tid1, weight)));
-		}
-		tFile.close();
-	}else
-		std::cout << "Couldn't open file " << tFileName << "\n";
+            d2.insert(Hash_Map::value_type(tid2,Node(id2, tid2)));
+            d2[tid2].neighbours.insert(Links::value_type(tid1,Link(tid1, weight)));
+        }
+        tFile.close();
+    }else
+        std::cout << "Couldn't open file " << tFileName << "\n";
 
-	std::ifstream qFile(qFileName);
-	if (qFile.is_open()){
-		while (qFile >> id1 >> id2){
+    std::ifstream qFile(qFileName);
+    if (qFile.is_open()){
+        while (qFile >> id1 >> id2){
             if (rd1.find(id1) == rd1.end()){
                 rd1.insert(IdMap::value_type(id1,tmpid1));
                 tid1 = rd1[id1]; 
@@ -428,129 +427,129 @@ int main(int argc, char **argv){
                 tmpid2++;
             }
 
-                tid1 = rd1[id1]; 
-                tid2 = rd2[id2];
+            tid1 = rd1[id1]; 
+            tid2 = rd2[id2];
             /* if (d1[tid1].neighbours.find(tid2) != d1[tid1].neighbours.end()){ */
-                d1[tid1].neighbours.erase(tid2);
-                d2[tid2].neighbours.erase(tid1);
+            d1[tid1].neighbours.erase(tid2);
+            d2[tid2].neighbours.erase(tid1);
 
 
             queries.push_back(boost::tuple<Node*, Node*>(&(d1[rd1[id1]]), &(d2[rd2[id2]])));
-		}
-		qFile.close();
-	}else
-		std::cout << "Couldn't open file " << tFileName << "\n";
+        }
+        qFile.close();
+        }else
+            std::cout << "Couldn't open file " << tFileName << "\n";
 
-    lnfactlist = genLogFactList(logsize);
+        lnfactlist = genLogFactList(logsize);
 
-    nnod1 = d1.size();
-    nnod2 = d2.size();
-    ng1 = d1.size();
-    ng2 = d2.size();
-    nqueries = queries.size();
+        nnod1 = d1.size();
+        nnod2 = d2.size();
+        ng1 = d1.size();
+        ng2 = d2.size();
+        nqueries = queries.size();
 
-    IVector keys1(nnod1), keys2(nnod2);
-    i = 0;
-    for(Hash_Map::iterator it = d1.begin(); it != d1.end(); ++it) {
-        keys1[i] = it->first;
-        ++i;
-    }
-    i = 0;
-    for(Hash_Map::iterator it = d2.begin(); it != d2.end(); ++it) {
-        keys2[i] = it->first;
-        ++i;
-    }
-
-    GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
-    Scores scores(boost::extents[nqueries][mark]);
-
-    fprintf(stderr, "Creating groups...\n\n");
-	createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
-
-
-    fprintf(stderr, "Calculating initial H...\n");
-    start = time(NULL);
-	H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
-    end = time(NULL);
-    fprintf(stderr, "Initial H: %f | Time Spent: %lu secs\n\n", H, end-start);
-
-    fprintf(stderr, "Calculating decorrelation step...\n");
-    start = time(NULL);
-    decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
-    /* decorStep = 1; */
-    end = time(NULL);
-    fprintf(stderr, "Decorrelation step: %d | Time Spent: %lu secs\n\n", decorStep, end-start);
-
-    fprintf(stderr, "Thermalizing...\n");
-    start = time(NULL);
-    thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
-    end = time(NULL);
-    fprintf(stderr, "Time Spent: %lu secs\n\n", end-start);
-
-
-
-    fprintf(stderr, "Starting MC Steps...\n");
-    start = time(NULL);
-    int indquery;
-	for(i=0; i<STEPS; i++){
-		mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
-        /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2); */
-        /* std::cout << std::setprecision(20) << H << "    " << TH << "\n\n"; */
-        /* std::cout << std::setprecision(20) << i << " " << H << "\n"; */
-        /* printf("############GROUPS1################\n"); */
-        /* printGroups(groups1, mark); */
-        /* printf("############GROUPS2################\n"); */
-        /* printGroups(groups2, mark); */
-        /* printf("###################################\n"); */
-        indquery = 0;
-        for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
-            for (k=1; k<mark+1; k++) {
-                nk = gglinks[(*it->get<0>()).getGroup()][(*it->get<1>()).getGroup()][k];
-                n = gglinks[(*it->get<0>()).getGroup()][(*it->get<1>()).getGroup()][0];
-                scores[indquery][k-1] += (float)(nk + 1) / (float)(n + mark);
-            }
-            indquery++;
+        IVector keys1(nnod1), keys2(nnod2);
+        i = 0;
+        for(Hash_Map::iterator it = d1.begin(); it != d1.end(); ++it) {
+            keys1[i] = it->first;
+            ++i;
+        }
+        i = 0;
+        for(Hash_Map::iterator it = d2.begin(); it != d2.end(); ++it) {
+            keys2[i] = it->first;
+            ++i;
         }
 
+        GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
+        Scores scores(boost::extents[nqueries][mark]);
 
-        if (i % 100 == 0) { 
-            outfile.open("scores.tmp");
+        fprintf(stderr, "Creating groups...\n\n");
+        createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
+
+
+        fprintf(stderr, "Calculating initial H...\n");
+        start = time(NULL);
+        H = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
+        end = time(NULL);
+        fprintf(stderr, "Initial H: %f | Time Spent: %lu secs\n\n", H, end-start);
+
+        fprintf(stderr, "Calculating decorrelation step...\n");
+        start = time(NULL);
+        decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
+        /* decorStep = 1; */
+        end = time(NULL);
+        fprintf(stderr, "Decorrelation step: %d | Time Spent: %lu secs\n\n", decorStep, end-start);
+
+        fprintf(stderr, "Thermalizing...\n");
+        start = time(NULL);
+        thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
+        end = time(NULL);
+        fprintf(stderr, "Time Spent: %lu secs\n\n", end-start);
+
+
+
+        fprintf(stderr, "Starting MC Steps...\n");
+        start = time(NULL);
+        int indquery;
+        for(i=0; i<iterations; i++){
+            mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, logsize, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
+            /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2); */
+            /* std::cout << std::setprecision(20) << H << "    " << TH << "\n\n"; */
+            /* std::cout << std::setprecision(20) << i << " " << H << "\n"; */
+            /* printf("############GROUPS1################\n"); */
+            /* printGroups(groups1, mark); */
+            /* printf("############GROUPS2################\n"); */
+            /* printGroups(groups2, mark); */
+            /* printf("###################################\n"); */
             indquery = 0;
             for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
-                outfile << "| " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " | ";
-                for (k=0; k<mark; k++)
-                    outfile << scores[indquery][k]/(double)STEPS << " ";
+                for (k=1; k<mark+1; k++) {
+                    nk = gglinks[(*it->get<0>()).getGroup()][(*it->get<1>()).getGroup()][k];
+                    n = gglinks[(*it->get<0>()).getGroup()][(*it->get<1>()).getGroup()][0];
+                    scores[indquery][k-1] += (float)(nk + 1) / (float)(n + mark);
+                }
                 indquery++;
-                outfile << "\n";
             }
-            outfile.close();
-        }
-	}
-    end = time(NULL);
-    fprintf(stderr, "Done. Time Spent: %lu secs\n\n", end-start);
 
-    for (j=0; j<nqueries; j++)
-        for (k=0; k<mark; k++)
-            scores[j][k] /= (double)STEPS;
 
-    outfile.open("scores.tmp");
-    fprintf(stdout, "RESULTS:\n");
-    indquery = 0;
-    for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
-        outfile << "# " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " # ";
-        std::cout << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << '\n';
-        for (k=0; k<mark; k++){
-            outfile << scores[indquery][k] << " ";
-            std::cout << scores[indquery][k] << " ";
+            if (i % 100 == 0) { 
+                outfile.open("scores.tmp");
+                indquery = 0;
+                for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
+                    outfile << "| " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " | ";
+                    for (k=0; k<mark; k++)
+                        outfile << scores[indquery][k]/(double)iterations << " ";
+                    indquery++;
+                    outfile << "\n";
+                }
+                outfile.close();
+            }
         }
-        indquery++;
-        outfile << "\n\n";
-        std::cout << "\n\n";
+        end = time(NULL);
+        fprintf(stderr, "Done. Time Spent: %lu secs\n\n", end-start);
+
+        for (j=0; j<nqueries; j++)
+            for (k=0; k<mark; k++)
+                scores[j][k] /= (double)iterations;
+
+        outfile.open("scores.tmp");
+        fprintf(stdout, "RESULTS:\n");
+        indquery = 0;
+        for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
+            outfile << "# " << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << " # ";
+            std::cout << (*it->get<0>()).getRealId() <<' '<< (*it->get<1>()).getRealId() << '\n';
+            for (k=0; k<mark; k++){
+                outfile << scores[indquery][k] << " ";
+                std::cout << scores[indquery][k] << " ";
+            }
+            indquery++;
+            outfile << "\n\n";
+            std::cout << "\n\n";
+        }
+
+        free(lnfactlist);
+        gsl_rng_free(randomizer);
+        return 0;
+
     }
-
-    free(lnfactlist);
-	gsl_rng_free(randomizer);
-	return 0;
-
-}
 
