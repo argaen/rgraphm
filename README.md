@@ -10,7 +10,7 @@ This is a C++ version of the rpgrah program. The original can be found at
 
 In this version, the main objective is performance. If you find any bug or 
 something to improve, please contact me at manu.mirandad@gmail.com or open
-an issue in the [rgraphm repository](https://bitbucket.org/seeslab/rgraphm.git).
+an issue in the [rgraphm repository](https://github.com/argaen/rgraphm).
 
 
 ###USAGE

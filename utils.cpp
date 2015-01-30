@@ -192,11 +192,12 @@ double logFact(int key, int size, double* logFactList){
 
 void printGroups(Groups g, int mark){
     for (Groups::iterator it = (g).begin(); it != (g).end(); ++it){
-        /* std::cout << "[Group:" << it->second.getId(); */
+        std::cout << "[Group:" << it->second.getId() << "] ";
         for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
-            std::cout << it1->second->getId() << " " ;
-            /* for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit) */
-            /*     std::cout << nit->second.getId() << ", "; */
+            std::cout << "[ " << it1->second->getId() << ": " ;
+            for (Links::iterator nit = it1->second->neighbours.begin(); nit != it1->second->neighbours.end(); ++nit)
+                std::cout << nit->second.getId() << ", ";
+            std::cout << " ]";
 
         }
         std::cout << "\n";

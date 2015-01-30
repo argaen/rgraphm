@@ -1,7 +1,7 @@
 CXX=g++
-CFLAGS= -Wall -O3 -I.
+CFLAGS= -Wall -O3 -std=c++11 -I.
 # CFLAGS= -Wall -g -O3 -flto -I.
-LIBS=-lgsl -lgslcblas -lm 
+LIBS=-lgsl -lgslcblas -lm
 
 all: recommendmake
 
