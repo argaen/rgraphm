@@ -71,12 +71,24 @@ double group2GroupH(Group *g1, Group *g2, int K, GGLinks *gglinks) {
  */
 double hkState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks *gglinks, int ng1, int ng2) {
     double H = 0.0;
+    typedef GGLinks::index index;
 
     for (Groups::iterator it1 = g1->begin(); it1 != g1->end(); ++it1)
         for (Groups::iterator it2 = g2->begin(); it2 != g2->end(); ++it2)
             H += group2GroupH(&(it1->second), &(it2->second), K, gglinks);
 
     H -= gsl_sf_lnfact(d1_size - ng1) + gsl_sf_lnfact(d2_size - ng2);
+
+    /* for(index i = 0; i != 2; ++i){ */
+    /*     for(index j = 0; j != 2; ++j){ */
+    /*         std::cout << "|"; */
+    /*         for(index k = 0; k != 3; ++k){ */
+    /*             std::cout << (*gglinks)[i][j][k]; */
+    /*         } */
+    /*         std::cout << "   "; */
+    /*     } */
+    /*     std::cout << std::endl << std::endl; */
+    /* } */
 
     return H;
 
@@ -146,45 +158,41 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
     }
 }
 
-double calculatedH(Node *n, Hash_Map *d1, Hash_Map *d2, GGLinks *gglinks, Group *src_g, Group *dest_g, int K, double *lnfactlist, bool set_ind, int *ng1, int *ng2) {
+double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglinks, Group *src_g, Group *dest_g, int K, double *lnfactlist, bool set_ind, int *ng) {
     double dH = 0.0;
     int id;
+    bool visitedgroup[d_move->size()];
+    int set_size_move = d_move->size();
 
-    Hash_Map *d_move;    // Partition where the movement occurs
-    Hash_Map *d_nomove;  // Partition where the movement does not occur
-    int ng;
-
-    if (set_ind) {
-        d_move = d1;d_nomove = d2; ng = *ng1;
-    } else {
-        d_move = d2;d_nomove = d1; ng = *ng2;
-    }
+    for (int i=0; i < d_move->size(); i++)
+        visitedgroup[i]=false;
 
     for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it) {
-
         id = (*d_nomove)[it->second.getId()].getGroup();
-
-        if (set_ind) {
-            dH -= lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
-            dH -= lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
-        } else {
-            dH -= lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
-            dH -= lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
-        }
-
-        for (int i = 1; i<K+1; ++i) {
+        if (!visitedgroup[id]) {
             if (set_ind) {
-                dH -= -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
-                dH -= -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
+                dH -= lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
+                dH -= lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
             } else {
-                dH -= -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
-                dH -= -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
+                dH -= lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
+                dH -= lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
             }
+
+            for (int i = 1; i<K+1; ++i) {
+                if (set_ind) {
+                    dH -= -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
+                    dH -= -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
+                } else {
+                    dH -= -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
+                    dH -= -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
+                }
+            }
+            visitedgroup[id] = true;
         }
     }
 
     if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
-        dH += lnfactlist[d_move->size() - ng];
+        dH += lnfactlist[set_size_move - *ng];
 
     if (set_ind) {
         src_g->removeNodeS1(n, d_nomove, gglinks);
@@ -194,45 +202,36 @@ double calculatedH(Node *n, Hash_Map *d1, Hash_Map *d2, GGLinks *gglinks, Group 
         dest_g->addNodeS2(n, d_nomove, gglinks);
     }
 
-    if (src_g->members.size() == 0) ng -= 1;
-    if (dest_g->members.size() == 1) ng += 1;
+    if (src_g->members.size() == 0) *ng -=1;
+    if (dest_g->members.size() == 1) *ng +=1;
 
     // Calculations for checking the dH when adding the node
     for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it) {
         id = (*d_nomove)[it->second.getId()].getGroup();
-
-        if (set_ind) {
-            dH += lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
-            dH += lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
-        } else {
-            dH += lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
-            dH += lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
-        }
-
-        for (int i = 1; i<K+1; ++i) {
+        if (visitedgroup[id]) {
             if (set_ind) {
-                dH += -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
-                dH += -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
+                dH += lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
+                dH += lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
             } else {
-                dH += -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
-                dH += -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
+                dH += lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
+                dH += lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
             }
+
+            for (int i = 1; i<K+1; ++i) {
+                if (set_ind) {
+                    dH += -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
+                    dH += -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
+                } else {
+                    dH += -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
+                    dH += -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
+                }
+            }
+            visitedgroup[id] = false;
         }
     }
 
     if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
-        dH -= lnfactlist[d_move->size() - ng];
-
-    if (set_ind) {
-        dest_g->removeNodeS1(n, d_nomove, gglinks);
-        src_g->addNodeS1(n, d_nomove, gglinks);
-    } else {
-        dest_g->removeNodeS2(n, d_nomove, gglinks);
-        src_g->addNodeS2(n, d_nomove, gglinks);
-    }
-
-    if (src_g->members.size() == 0) ng += 1;
-    if (dest_g->members.size() == 1) ng -= 1;
+        dH -= lnfactlist[set_size_move - *ng];
 
     return dH;
 }
@@ -255,104 +254,116 @@ double calculatedH(Node *n, Hash_Map *d1, Hash_Map *d2, GGLinks *gglinks, Group 
  */
 int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rgen, double *H, int K, double *lnfactlist, int nnod1, int nnod2, GGLinks *gglinks, IVector *keys1, IVector *keys2, int *ng1, int *ng2) {
 
-    Groups::iterator groups1, groups2;
-    Hash_Map::iterator nodes1, nodes2;
-    Node *n;
-    double dH = 0.0;
-    int old_group, id_dest;
-    /* double Z; */
     std::vector<std::tuple<int,double>> dh_values;
     std::vector<double> weights;
-    Group *dest_g, *src_g;
+    Group *src_g, *dest_g;
+    int newgrp, oldgrp, id_dest;
+    Node *n;
+    double dH = 0.0, empty_dH = 0.0;
+    Groups tmp_groups;
+    int empty_groups;
 
-    for (nodes1 = d1->begin(); nodes1 != d1->end(); nodes1++) {
-        nodes1++;
+    for (Hash_Map::iterator nodes1 = d1->begin(); nodes1 != d1->end(); nodes1++) {
 
-        weights.clear();
-        dh_values.clear();
-        n = &(nodes1->second);
-        old_group = n->getGroup();
-        src_g = &((*g1)[old_group]);
-        for (groups1 = g1->begin(); groups1 != g1->end(); groups1++) {
-            if (old_group != groups1->second.getId())
-                dH = calculatedH(n, d1, d2, gglinks, src_g, &(groups1->second), K, lnfactlist, true, ng1, ng2);
-            else
+        weights = {};
+        dh_values = {};
+        n = &(d1->at(nodes1->second.getId()));
+        oldgrp = n->getGroup();
+        src_g = &(*g1)[oldgrp];
+        empty_groups = empty_dH = 0;
+
+        for (Groups::iterator groups1 = g1->begin(); groups1 != g1->end(); groups1++) {
+            newgrp = groups1->second.getId();
+            if (newgrp == oldgrp) {
                 dH = 0.0;
-            dh_values.push_back(std::make_tuple(groups1->second.getId(), dH));
-            weights.push_back(exp(-dH));
+                dh_values.push_back(std::make_tuple(newgrp, 0.0));
+                weights.push_back(1.0);
+
+            } else {
+                dest_g = &(*g1)[newgrp];
+                if (dest_g->members.size() != 0 || empty_groups == 0) {
+                    dH = calculatedH(n, d1, d2, gglinks, src_g, dest_g, K, lnfactlist, true, ng1);
+                    dest_g->removeNodeS1(n, d2, gglinks);
+                    src_g->addNodeS1(n, d2, gglinks);
+                    if (src_g->members.size() == 1) *ng1 +=1;
+                    if (dest_g->members.size() == 0) *ng1 -=1;
+                    dh_values.push_back(std::make_tuple(newgrp, dH));
+                    weights.push_back(exp(-dH));
+
+                    if (empty_groups == 0 && dest_g->members.size() == 0) {
+                        empty_dH = dH;
+                        empty_groups++;
+                    }
+                } else {
+                    dh_values.push_back(std::make_tuple(newgrp, empty_dH));
+                    weights.push_back(exp(-empty_dH));
+                }
+            }
         }
-        /* Z = std::accumulate(weights.begin(), weights.end(), 0.0); */
-        /* for (auto c : weights) */
-        /*     std::cout << c << ' '; */
-        /* std::transform(weights.begin(), weights.end(), weights.begin(), std::bind2nd(std::divides<double>(), Z)); */
         boost::random::discrete_distribution<int,double> weightdist(weights);
         boost::variate_generator<RNGType&, boost::random::discrete_distribution<int,double> > weightsampler(rng, weightdist);  //Constant output
-        /* for (auto c : weights) */
-        /*     std::cout << c << ' '; */
-        /* std::cout << std::endl; */
-        /* for (auto c : dh_values) */
-        /*     std::cout << std::get<0>(c) << ' ' << std::get<1>(c) << " | "; */
-        /* std::cout << std::endl; */
         id_dest = weightsampler();
         dest_g = &((*g1)[std::get<0>(dh_values[id_dest])]);
-        *H += std::get<1>(dh_values[id_dest]);
-
-        /* printf("%d %d\n", old_group, dest_g->getId()); */
-        if (old_group != dest_g->getId()) {
+        if (dest_g->getId() != src_g->getId()) {
             src_g->removeNodeS1(n, d2, gglinks);
             dest_g->addNodeS1(n, d2, gglinks);
             if (src_g->members.size() == 0) *ng1 -=1;
             if (dest_g->members.size() == 1) *ng1 +=1;
         }
-        break;
+        *H += std::get<1>(dh_values[id_dest]);
     }
 
+    for (Hash_Map::iterator nodes2 = d2->begin(); nodes2 != d2->end(); nodes2++) {
 
-    for (nodes2 = d2->begin(); nodes2 != d2->end(); nodes2++) {
-        nodes2++;
-        nodes2++;
+        weights = {};
+        dh_values = {};
+        n = &(d2->at(nodes2->second.getId()));
+        oldgrp = n->getGroup();
+        src_g = &(*g2)[oldgrp];
+        empty_groups = empty_dH = 0;
 
-        weights.clear();
-        dh_values.clear();
-        n = &(nodes2->second);
-        old_group = n->getGroup();
-        src_g = &((*g2)[old_group]);
-        for (groups2 = g2->begin(); groups2 != g2->end(); groups2++) {
-            if (old_group != groups2->second.getId())
-                dH = calculatedH(n, d1, d2, gglinks, src_g, &(groups2->second), K, lnfactlist, false, ng1, ng2);
-            else
+        for (Groups::iterator groups2 = g2->begin(); groups2 != g2->end(); groups2++) {
+            newgrp = groups2->second.getId();
+            if (newgrp == oldgrp) {
                 dH = 0.0;
-            dh_values.push_back(std::make_tuple(groups2->second.getId(), dH));
-            weights.push_back(exp(-dH));
+                dh_values.push_back(std::make_tuple(newgrp, 0.0));
+                weights.push_back(1.0);
+
+            } else {
+                dest_g = &(*g2)[newgrp];
+                if (dest_g->members.size() != 0 || empty_groups == 0) {
+                    dH = calculatedH(n, d2, d1, gglinks, src_g, dest_g, K, lnfactlist, false, ng2);
+
+                    dest_g->removeNodeS2(n, d1, gglinks);
+                    src_g->addNodeS2(n, d1, gglinks);
+                    if (src_g->members.size() == 1) *ng2 +=1;
+                    if (dest_g->members.size() == 0) *ng2 -=1;
+                    dh_values.push_back(std::make_tuple(groups2->second.getId(), dH));
+                    weights.push_back(exp(-dH));
+
+                    if (empty_groups == 0 && dest_g->members.size() == 0) {
+                        empty_dH = dH;
+                        empty_groups++;
+                    }
+                } else {
+                    dh_values.push_back(std::make_tuple(newgrp, empty_dH));
+                    weights.push_back(exp(-empty_dH));
+                }
+
+            }
         }
-        /* Z = std::accumulate(weights.begin(), weights.end(), 0.0); */
-        /* for (auto c : weights) */
-        /*     std::cout << c << ' '; */
-        /* std::transform(weights.begin(), weights.end(), weights.begin(), std::bind2nd(std::divides<double>(), Z)); */
         boost::random::discrete_distribution<int,double> weightdist(weights);
         boost::variate_generator<RNGType&, boost::random::discrete_distribution<int,double> > weightsampler(rng, weightdist);  //Constant output
-        /* for (auto c : weights) */
-        /*     std::cout << c << ' '; */
-        /* std::cout << std::endl; */
-        /* for (auto c : dh_values) */
-        /*     std::cout << std::get<0>(c) << ' ' << std::get<1>(c) << " | "; */
-        /* std::cout << std::endl; */
         id_dest = weightsampler();
         dest_g = &((*g2)[std::get<0>(dh_values[id_dest])]);
-        *H += std::get<1>(dh_values[id_dest]);
-
-        /* printf("%d %d\n", old_group, dest_g->getId()); */
-        if (old_group != dest_g->getId()) {
+        if (dest_g->getId() != src_g->getId()) {
             src_g->removeNodeS2(n, d1, gglinks);
             dest_g->addNodeS2(n, d1, gglinks);
             if (src_g->members.size() == 0) *ng2 -=1;
             if (dest_g->members.size() == 1) *ng2 +=1;
         }
-        break;
+        *H += std::get<1>(dh_values[id_dest]);
     }
-
-    printf("%d %d %d %d\n", *ng1, *ng2, d1->size(), d2->size());
-
 
     return 0;
 }
@@ -384,12 +395,10 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
     Groups *g;
     Hash_Map *d_move;    // Partition where the movement occurs
     Hash_Map *d_nomove;  // Partition where the movement does not occur
-    int bnnod = (nnod1>nnod2) ? nnod1+1 : nnod2+1;
 
     int factor;
-    bool visitedgroup[bnnod];
     Group *src_g, *dest_g;
-    int newgrp, oldgrp, dice, set_size_move, id;
+    int newgrp, oldgrp, dice, set_size_move;
     bool set_ind;
     Node *n;
     double dH;
@@ -397,9 +406,6 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
     double set_ratio = (double)(nnod1*nnod1-1) / (double)(nnod1*nnod1+nnod2*nnod2-2);
     IVector *keys;
 
-
-    for (int i=0; i < bnnod; i++)
-        visitedgroup[i]=false;
 
     factor = (nnod1+nnod2)*decorStep;
     for (int move=0; move<factor; move++) {
@@ -422,72 +428,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
         dest_g = &(*g)[newgrp];
 
         // Calculations for checking the dH when removing the node
-        for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it) {
-            id = (*d_nomove)[it->second.getId()].getGroup();
-            if (!visitedgroup[id]) {
-                if (set_ind) {
-                    dH -= lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
-                    dH -= lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
-                } else {
-                    dH -= lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
-                    dH -= lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
-                }
-
-                for (int i = 1; i<K+1; ++i) {
-                    if (set_ind) {
-                        dH -= -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
-                        dH -= -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
-                    } else {
-                        dH -= -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
-                        dH -= -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
-                    }
-                }
-                visitedgroup[id] = true;
-            }
-        }
-
-        if ( src_g->members.size() == 1 || dest_g->members.size() == 0)
-            dH += lnfactlist[set_size_move - *ng];
-
-        if (set_ind) {
-            src_g->removeNodeS1(n, d_nomove, gglinks);
-            dest_g->addNodeS1(n, d_nomove, gglinks);
-        } else {
-            src_g->removeNodeS2(n, d_nomove, gglinks);
-            dest_g->addNodeS2(n, d_nomove, gglinks);
-        }
-
-        if (src_g->members.size() == 0) *ng -=1;
-        if (dest_g->members.size() == 1) *ng +=1;
-
-        // Calculations for checking the dH when adding the node
-        for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it) {
-            id = (*d_nomove)[it->second.getId()].getGroup();
-            if (visitedgroup[id]) {
-                if (set_ind) {
-                    dH += lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
-                    dH += lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
-                } else {
-                    dH += lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
-                    dH += lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
-                }
-
-                for (int i = 1; i<K+1; ++i) {
-                    if (set_ind) {
-                        dH += -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
-                        dH += -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
-                    } else {
-                        dH += -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
-                        dH += -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
-                    }
-                }
-                visitedgroup[id] = false;
-            }
-        }
-
-        if ( src_g->members.size() == 0 || dest_g->members.size() == 1)
-            dH -= lnfactlist[set_size_move - *ng];
-
+        dH = calculatedH(n, d_move, d_nomove, gglinks, src_g, dest_g, K, lnfactlist, set_ind, ng);
 
         if ( dH <= 0.0 || gsl_rng_uniform(rgen) < exp(-dH)) {
             *H += dH;
@@ -750,7 +691,7 @@ int main(int argc, char **argv) {
         ++i;
     }
 
-    GGLinks gglinks(boost::extents[nnod1+1][nnod2+1][mark+1]);
+    GGLinks gglinks(boost::extents[nnod1][nnod2][mark+1]);
     Scores scores(boost::extents[nqueries][mark]);
 
     fprintf(stderr, "Creating groups...\n\n");
@@ -787,17 +728,17 @@ int main(int argc, char **argv) {
     start = time(NULL);
     int indquery;
     for(i=0; i<iterations; i++) {
-        /* mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2); */
-        gibbsStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
-    printf("############GROUPS1################\n");
-    printGroups(groups1, mark);
-    printf("############GROUPS2################\n");
-    printGroups(groups2, mark);
-    printf("###################################\n");
+        mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
+        /* gibbsStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2); */
+        /* printf("############GROUPS1################\n"); */
+        /* printGroups(groups1, mark); */
+        /* printf("############GROUPS2################\n"); */
+        /* printGroups(groups2, mark); */
+        /* printf("###################################\n"); */
 
-        /* std::cout << i << " " << H << "\n"; */
-        TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2);
-        std::cout << std::setprecision(20) << H << "    " << TH << "\n\n";
+        std::cout << i << " " << H << "\n";
+        /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2); */
+        /* std::cout << std::setprecision(20) << H << "    " << TH << "\n\n"; */
         indquery = 0;
         for (tuple_list::iterator it = queries.begin(); it != queries.end(); ++it) {
             for (k=1; k<mark+1; k++) {

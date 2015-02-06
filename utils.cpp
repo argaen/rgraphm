@@ -190,7 +190,7 @@ double logFact(int key, int size, double* logFactList){
         return logFactList[key];
 }
 
-void printGroups(Groups g, int mark){
+void printGroups(Groups g, int mark) {
     for (Groups::iterator it = (g).begin(); it != (g).end(); ++it){
         std::cout << "[Group:" << it->second.getId() << "] ";
         for(GroupNodes::iterator it1 = it->second.members.begin(); it1 != it->second.members.end(); ++it1){
