@@ -13,7 +13,7 @@ void print_usage() {
 }
 
 
-void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* mark, int* iterations) {
+void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* stepseed, int* mark, int* iterations, char** algorithm) {
     if (argc < 9) {
 
         fprintf (stderr, "Usage: main_recommender -q queryFile -t trainFile -s randomseed -m mark \n");
@@ -21,8 +21,14 @@ void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* ste
     }
 
     int c;
-    while ((c = getopt (argc, argv, "t:q:s:g:m:n:h")) != -1)
+    while ((c = getopt (argc, argv, "a:t:q:s:g:m:n:h")) != -1)
         switch (c) {
+            case 'a':
+                if (strcmp(optarg, "gibbs") == 0 || strcmp(optarg, "metropolis") == 0)
+                    *algorithm = optarg;
+                else
+                    fprintf (stderr, "Option -a only allows \"gibbs\" or \"metropolis\" algorithms.\n");
+                break;
             case 't':
                 *inFile = optarg;
                 break;
@@ -42,7 +48,7 @@ void parseArguments(int argc, char **argv, char** inFile, char** qFile, int* ste
                 print_usage();
                 exit(0);
             case '?':
-                if (optopt == 't' || optopt == 'q' || optopt == 'm' || optopt == 's' || optopt == 'g' || optopt == 'n')
+                if (optopt == 't' || optopt == 'q' || optopt == 'm' || optopt == 's' || optopt == 'g' || optopt == 'n' || optopt == 'a')
                     fprintf (stderr, "Option -%c requires an argument.\n", optopt);
                 else if (isprint (optopt))
                     fprintf (stderr, "Unknown option `-%c'.\n", optopt);

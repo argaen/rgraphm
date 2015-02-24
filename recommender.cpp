@@ -27,6 +27,7 @@
 typedef boost::random::mt19937 RNGType;
 RNGType rng;  //Constant output
 /* RNGType rng(time(0)); */
+typedef boost::unordered_map<double, double> HashExp;
 typedef boost::unordered_map<int, double> LnFactList;
 typedef boost::unordered_map<int, Node> Hash_Map;
 typedef boost::unordered_map<Node*, Node*> Queries;
@@ -71,7 +72,7 @@ double group2GroupH(Group *g1, Group *g2, int K, GGLinks *gglinks) {
  */
 double hkState(int K, Groups *g1, Groups *g2, int d1_size, int d2_size, GGLinks *gglinks, int ng1, int ng2) {
     double H = 0.0;
-    typedef GGLinks::index index;
+    /* typedef GGLinks::index index; */
 
     for (Groups::iterator it1 = g1->begin(); it1 != g1->end(); ++it1)
         for (Groups::iterator it2 = g2->begin(); it2 != g2->end(); ++it2)
@@ -161,11 +162,10 @@ void createRandomGroups(Hash_Map *d1, Hash_Map *d2, Groups *groups1, Groups *gro
 double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglinks, Group *src_g, Group *dest_g, int K, double *lnfactlist, bool set_ind, int *ng) {
     double dH = 0.0;
     int id;
-    bool visitedgroup[d_move->size()];
+    bool visitedgroup[d_nomove->size()];
     int set_size_move = d_move->size();
 
-    for (int i=0; i < d_move->size(); i++)
-        visitedgroup[i]=false;
+    memset(visitedgroup, false, d_nomove->size());
 
     for (Links::iterator it = n->neighbours.begin(); it != n->neighbours.end(); ++it) {
         id = (*d_nomove)[it->second.getId()].getGroup();
@@ -236,6 +236,14 @@ double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglin
     return dH;
 }
 
+double fastexp(double a, HashExp explist) {
+    if (explist.find(a) == explist.end())
+        explist[a] = exp(a);
+
+    return explist[a];
+}
+
+
 /*!
  * Perform a Gibbs step in our system. It consists on looping over the nodes of both partitions calculating the dH for each possible movement. Once each dH is calculated for
  * a node, roll a dice and pick a movement and apply it.
@@ -252,7 +260,7 @@ double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglin
  * @param ng1 Number of (non empty) Groups from the first partition (g1).
  * @param ng2 Number of (non empty) Groups from the second partition (g2).
  */
-int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rgen, double *H, int K, double *lnfactlist, int nnod1, int nnod2, GGLinks *gglinks, IVector *keys1, IVector *keys2, int *ng1, int *ng2) {
+int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rgen, double *H, int K, double *lnfactlist, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector *keys1, IVector *keys2, int *ng1, int *ng2) {
 
     std::vector<std::tuple<int,double>> dh_values;
     std::vector<double> weights;
@@ -262,6 +270,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
     double dH = 0.0, empty_dH = 0.0;
     Groups tmp_groups;
     int empty_groups;
+    HashExp explist;
 
     for (Hash_Map::iterator nodes1 = d1->begin(); nodes1 != d1->end(); nodes1++) {
 
@@ -288,7 +297,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     if (src_g->members.size() == 1) *ng1 +=1;
                     if (dest_g->members.size() == 0) *ng1 -=1;
                     dh_values.push_back(std::make_tuple(newgrp, dH));
-                    weights.push_back(exp(-dH));
+                    weights.push_back(fastexp(-dH, explist));
 
                     if (empty_groups == 0 && dest_g->members.size() == 0) {
                         empty_dH = dH;
@@ -296,7 +305,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     }
                 } else {
                     dh_values.push_back(std::make_tuple(newgrp, empty_dH));
-                    weights.push_back(exp(-empty_dH));
+                    weights.push_back(fastexp(-empty_dH, explist));
                 }
             }
         }
@@ -339,7 +348,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     if (src_g->members.size() == 1) *ng2 +=1;
                     if (dest_g->members.size() == 0) *ng2 -=1;
                     dh_values.push_back(std::make_tuple(groups2->second.getId(), dH));
-                    weights.push_back(exp(-dH));
+                    weights.push_back(fastexp(-dH, explist));
 
                     if (empty_groups == 0 && dest_g->members.size() == 0) {
                         empty_dH = dH;
@@ -347,7 +356,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     }
                 } else {
                     dh_values.push_back(std::make_tuple(newgrp, empty_dH));
-                    weights.push_back(exp(-empty_dH));
+                    weights.push_back(fastexp(-empty_dH, explist));
                 }
 
             }
@@ -467,7 +476,7 @@ int mcStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rg
  * @param ng1 Number of (non empty) Groups from the first partition (g1).
  * @param ng2 Number of (non empty) Groups from the second partition (g2).
  */
-int thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rgen, double *H, int K, double *lnfactlist, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector *keys1, IVector *keys2, int *ng1, int *ng2) {
+int thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng *rgen, double *H, int K, double *lnfactlist, int nnod1, int nnod2, GGLinks *gglinks, int decorStep, IVector *keys1, IVector *keys2, int *ng1, int *ng2, int (*algorithm)(Groups*, Groups*, Hash_Map*, Hash_Map*, gsl_rng*, double*, int, double*, int, int, GGLinks*, int, IVector*, IVector*, int*, int*)) {
 
     double HMean0=1.e10, HStd0=1.e-10, HMean1, HStd1, *Hvalues;
     int nrep=20;
@@ -477,7 +486,7 @@ int thermalizeMCKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_r
 
     do {
         for (int i=0; i<nrep; i++) {
-            mcStepKState(g1, g2, d1, d2, rgen, H, K, lnfactlist, nnod1, nnod2, gglinks, decorStep, keys1, keys2, ng1, ng2);
+            algorithm(g1, g2, d1, d2, rgen, H, K, lnfactlist, nnod1, nnod2, gglinks, decorStep, keys1, keys2, ng1, ng2);
             Hvalues[i] = *H;
         }
 
@@ -589,7 +598,7 @@ int getDecorrelationKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, g
 
 int main(int argc, char **argv) {
 
-    int decorStep;
+    int decorStep = 0;
     int weight, logsize=LOGSIZE;
     std::string id1, id2;
     double H;
@@ -601,6 +610,7 @@ int main(int argc, char **argv) {
     gsl_rng *randomizer;
     char* tFileName;
     char* qFileName;
+    char* str_algorithm = (char*) malloc(25*sizeof(char));
     int stepseed;
     int iterations = 10000;
     int mark, k, i, j, n, nk, tmpid1 = 0, tmpid2 = 0, tid1, tid2;
@@ -610,8 +620,15 @@ int main(int argc, char **argv) {
     time_t end;
     double TH;
     std::ofstream outfile;
+    int (*algorithm)(Groups*, Groups*, Hash_Map*, Hash_Map*, gsl_rng*, double*, int, double*, int, int, GGLinks*, int, IVector*, IVector*, int*, int*) = mcStepKState;
 
-    parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &mark, &iterations);
+    memcpy(str_algorithm, "metropolis", sizeof("metropolis"));
+    parseArguments(argc, argv, &tFileName, &qFileName, &stepseed, &mark, &iterations, &str_algorithm);
+    if (strcmp(str_algorithm, "gibbs") == 0)
+        algorithm = gibbsStepKState;
+    else if (strcmp(str_algorithm, "metropolis") == 0)
+        algorithm = mcStepKState;
+
 
 
     randomizer = gsl_rng_alloc(gsl_rng_mt19937);
@@ -696,11 +713,11 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "Creating groups...\n\n");
     createRandomGroups(&d1, &d2, &groups1, &groups2, mark, &gglinks, nnod1, nnod2);
-    printf("############GROUPS1################\n");
-    printGroups(groups1, mark);
-    printf("############GROUPS2################\n");
-    printGroups(groups2, mark);
-    printf("###################################\n");
+    /* printf("############GROUPS1################\n"); */
+    /* printGroups(groups1, mark); */
+    /* printf("############GROUPS2################\n"); */
+    /* printGroups(groups2, mark); */
+    /* printf("###################################\n"); */
 
 
     fprintf(stderr, "Calculating initial H...\n");
@@ -709,27 +726,28 @@ int main(int argc, char **argv) {
     end = time(NULL);
     fprintf(stderr, "Initial H: %f | Time Spent: %lu secs\n\n", H, end-start);
 
-    fprintf(stderr, "Calculating decorrelation step...\n");
-    start = time(NULL);
-    /* decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2); */
-    decorStep = 1;
-    end = time(NULL);
-    fprintf(stderr, "Decorrelation step: %d | Time Spent: %lu secs\n\n", decorStep, end-start);
+    if (strcmp(str_algorithm, "metropolis") == 0) {
+        fprintf(stderr, "Calculating decorrelation step...\n");
+        start = time(NULL);
+        decorStep = getDecorrelationKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2);
+        end = time(NULL);
+        fprintf(stderr, "Decorrelation step: %d | Time Spent: %lu secs\n\n", decorStep, end-start);
+    }
 
     fprintf(stderr, "Thermalizing...\n");
     start = time(NULL);
-    /* thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2); */
+    thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2, algorithm);
     end = time(NULL);
     fprintf(stderr, "Time Spent: %lu secs\n\n", end-start);
 
 
 
-    fprintf(stderr, "Starting MC Steps...\n");
+    fprintf(stderr, "Starting %s Steps...\n", str_algorithm);
     start = time(NULL);
     int indquery;
     for(i=0; i<iterations; i++) {
-        mcStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
-        /* gibbsStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, &keys1, &keys2, &ng1, &ng2); */
+        algorithm(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
+        /* gibbsStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2); */
         /* printf("############GROUPS1################\n"); */
         /* printGroups(groups1, mark); */
         /* printf("############GROUPS2################\n"); */

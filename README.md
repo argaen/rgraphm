@@ -15,7 +15,10 @@ an issue in the [rgraphm repository](https://github.com/argaen/rgraphm).
 
 ###USAGE
 
-    main_recommender -t trainFile -q queryFile -s randomseed -m mark
+    main_recommender -t trainFile -q queryFile -s randomseed -m mark -a [gibbs]
+
+    -a: Algorithm to perform the calculations. Options are "metropolis"
+        or "gibbs". Default is "metropolis".
 
     -t: Path to train file in format a b c where 'a' is the first 
         node id, 'b' is the second node id and c is the weight of their 
