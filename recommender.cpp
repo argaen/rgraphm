@@ -7,6 +7,7 @@
 #include <string>
 #include <sys/time.h>
 #include <numeric>
+#include <math.h>
 
 #include <boost/unordered_map.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -164,6 +165,8 @@ double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglin
     int id;
     bool visitedgroup[d_nomove->size()];
     int set_size_move = d_move->size();
+    int src_g_id = src_g->getId();
+    int dest_g_id = dest_g->getId();
 
     memset(visitedgroup, false, d_nomove->size());
 
@@ -171,20 +174,20 @@ double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglin
         id = (*d_nomove)[it->second.getId()].getGroup();
         if (!visitedgroup[id]) {
             if (set_ind) {
-                dH -= lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
-                dH -= lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
+                dH -= lnfactlist[(*gglinks)[src_g_id][id][0] + K - 1];
+                dH -= lnfactlist[(*gglinks)[dest_g_id][id][0] + K - 1];
             } else {
-                dH -= lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
-                dH -= lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
+                dH -= lnfactlist[(*gglinks)[id][src_g_id][0] + K - 1];
+                dH -= lnfactlist[(*gglinks)[id][dest_g_id][0] + K - 1];
             }
 
             for (int i = 1; i<K+1; ++i) {
                 if (set_ind) {
-                    dH -= -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
-                    dH -= -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
+                    dH -= -lnfactlist[(*gglinks)[src_g_id][id][i]];
+                    dH -= -lnfactlist[(*gglinks)[dest_g_id][id][i]];
                 } else {
-                    dH -= -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
-                    dH -= -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
+                    dH -= -lnfactlist[(*gglinks)[id][src_g_id][i]];
+                    dH -= -lnfactlist[(*gglinks)[id][dest_g_id][i]];
                 }
             }
             visitedgroup[id] = true;
@@ -210,20 +213,20 @@ double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglin
         id = (*d_nomove)[it->second.getId()].getGroup();
         if (visitedgroup[id]) {
             if (set_ind) {
-                dH += lnfactlist[(*gglinks)[src_g->getId()][id][0] + K - 1];
-                dH += lnfactlist[(*gglinks)[dest_g->getId()][id][0] + K - 1];
+                dH += lnfactlist[(*gglinks)[src_g_id][id][0] + K - 1];
+                dH += lnfactlist[(*gglinks)[dest_g_id][id][0] + K - 1];
             } else {
-                dH += lnfactlist[(*gglinks)[id][src_g->getId()][0] + K - 1];
-                dH += lnfactlist[(*gglinks)[id][dest_g->getId()][0] + K - 1];
+                dH += lnfactlist[(*gglinks)[id][src_g_id][0] + K - 1];
+                dH += lnfactlist[(*gglinks)[id][dest_g_id][0] + K - 1];
             }
 
             for (int i = 1; i<K+1; ++i) {
                 if (set_ind) {
-                    dH += -lnfactlist[(*gglinks)[src_g->getId()][id][i]];
-                    dH += -lnfactlist[(*gglinks)[dest_g->getId()][id][i]];
+                    dH += -lnfactlist[(*gglinks)[src_g_id][id][i]];
+                    dH += -lnfactlist[(*gglinks)[dest_g_id][id][i]];
                 } else {
-                    dH += -lnfactlist[(*gglinks)[id][src_g->getId()][i]];
-                    dH += -lnfactlist[(*gglinks)[id][dest_g->getId()][i]];
+                    dH += -lnfactlist[(*gglinks)[id][src_g_id][i]];
+                    dH += -lnfactlist[(*gglinks)[id][dest_g_id][i]];
                 }
             }
             visitedgroup[id] = false;
@@ -236,16 +239,9 @@ double calculatedH(Node *n, Hash_Map *d_move, Hash_Map *d_nomove, GGLinks *gglin
     return dH;
 }
 
-double fastexp(double a, HashExp explist) {
-    if (explist.find(a) == explist.end())
-        explist[a] = exp(a);
-
-    return explist[a];
-}
-
 
 /*!
- * Perform a Gibbs step in our system. It consists on looping over the nodes of both partitions calculating the dH for each possible movement. Once each dH is calculated for
+ * Perform a Gibbs step in our system using gibbs. It consists on looping over the nodes of both partitions calculating the dH for each possible movement. Once each dH is calculated for
  * a node, roll a dice and pick a movement and apply it.
  * @param g1 Set of Groups from the first partition.
  * @param g2 Set of Groups from the second partition.
@@ -270,7 +266,8 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
     double dH = 0.0, empty_dH = 0.0;
     Groups tmp_groups;
     int empty_groups;
-    HashExp explist;
+    time_t start;
+    time_t end;
 
     for (Hash_Map::iterator nodes1 = d1->begin(); nodes1 != d1->end(); nodes1++) {
 
@@ -297,7 +294,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     if (src_g->members.size() == 1) *ng1 +=1;
                     if (dest_g->members.size() == 0) *ng1 -=1;
                     dh_values.push_back(std::make_tuple(newgrp, dH));
-                    weights.push_back(fastexp(-dH, explist));
+                    weights.push_back(exp(-dH));
 
                     if (empty_groups == 0 && dest_g->members.size() == 0) {
                         empty_dH = dH;
@@ -305,7 +302,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     }
                 } else {
                     dh_values.push_back(std::make_tuple(newgrp, empty_dH));
-                    weights.push_back(fastexp(-empty_dH, explist));
+                    weights.push_back(exp(-empty_dH));
                 }
             }
         }
@@ -348,7 +345,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     if (src_g->members.size() == 1) *ng2 +=1;
                     if (dest_g->members.size() == 0) *ng2 -=1;
                     dh_values.push_back(std::make_tuple(groups2->second.getId(), dH));
-                    weights.push_back(fastexp(-dH, explist));
+                    weights.push_back(exp(-dH));
 
                     if (empty_groups == 0 && dest_g->members.size() == 0) {
                         empty_dH = dH;
@@ -356,7 +353,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
                     }
                 } else {
                     dh_values.push_back(std::make_tuple(newgrp, empty_dH));
-                    weights.push_back(fastexp(-empty_dH, explist));
+                    weights.push_back(exp(-empty_dH));
                 }
 
             }
@@ -379,7 +376,7 @@ int gibbsStepKState(Groups *g1, Groups *g2, Hash_Map *d1, Hash_Map *d2, gsl_rng 
 
 
 /*!
- * Perform a Monte Carlo step in our system. It consists on moving all the nodes from one or another partition (randomly chosen) decorrelationStep times between groups of the
+ * Perform a Monte Carlo step in our system using metropolis. It consists on moving all the nodes from one or another partition (randomly chosen) decorrelationStep times between groups of the
  * same partition. Each time we calculate dH and if its valid (we want to minimize H), we update H value and continue with next step. If not, we undo the movement and continue with
  * the next step.
  * @param g1 Set of Groups from the first partition.
@@ -736,7 +733,7 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "Thermalizing...\n");
     start = time(NULL);
-    thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2, algorithm);
+    /* thermalizeMCKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2, algorithm); */
     end = time(NULL);
     fprintf(stderr, "Time Spent: %lu secs\n\n", end-start);
 
@@ -746,7 +743,9 @@ int main(int argc, char **argv) {
     start = time(NULL);
     int indquery;
     for(i=0; i<iterations; i++) {
+        start = time(NULL);
         algorithm(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2);
+        end = time(NULL);
         /* gibbsStepKState(&groups1, &groups2, &d1, &d2, randomizer, &H, mark, lnfactlist, nnod1, nnod2, &gglinks, decorStep, &keys1, &keys2, &ng1, &ng2); */
         /* printf("############GROUPS1################\n"); */
         /* printGroups(groups1, mark); */
@@ -754,7 +753,7 @@ int main(int argc, char **argv) {
         /* printGroups(groups2, mark); */
         /* printf("###################################\n"); */
 
-        std::cout << i << " " << H << "\n";
+        std::cout << i << " " << H << " " << end-start << "s\n";
         /* TH = hkState(mark, &groups1, &groups2, nnod1, nnod2, &gglinks, ng1, ng2); */
         /* std::cout << std::setprecision(20) << H << "    " << TH << "\n\n"; */
         indquery = 0;
