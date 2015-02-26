@@ -67,3 +67,7 @@ code (if available) and more.
 
 NOTE: If you want to generate profiling info will valgrind, the program will
 last much more. You also need to compile it with debug options (-g in gcc).
+
+ - Don't try to access gglinks.data like a 1D array, it is slower.
+ - Removing the _set\_ind_ switch in _calculatedH_ doesn't improve performance.
+
